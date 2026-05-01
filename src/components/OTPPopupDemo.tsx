@@ -7,7 +7,7 @@ import OTPPopup from "./OTPPopup";
 
 export default function OTPPopupDemo() {
   const [open, setOpen] = useState(false);
-  const [verified, setVerified] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [verified, setVerified] = useState<{ name?: string; email: string; phone: string } | null>(null);
 
   return (
     <div style={{
@@ -38,7 +38,7 @@ export default function OTPPopupDemo() {
           color: "#166534",
           fontSize: 14,
         }}>
-          ✅ <strong>{verified.name}</strong> verified ({verified.phone})
+          ✅ <strong>{verified.name || "User"}</strong> verified ({verified.phone})
         </div>
       )}
 
