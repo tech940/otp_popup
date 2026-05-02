@@ -71,18 +71,22 @@ function VehicleSidebarPanel({
   const imageUrl = pickSnapshotStr(snap, [
     "photoUrl",
     "photoURL",
+    "heroImage",
+    "hero_image",
     "imageUrl",
     "image_url",
+    "vehicleImage",
+    "vehicle_image",
+    "thumbnailUrl",
+    "thumbnail_url",
+    "largeImageUrl",
+    "large_image_url",
     "image",
     "primaryPhoto",
     "primary_photo",
     "thumbnail",
-    "heroImage",
-    "hero_image",
     "stock_photo",
     "stockPhoto",
-    "vehicle_image",
-    "vehicleImage",
     "mainPhoto",
     "main_photo",
     "primary_image_url",
@@ -489,7 +493,9 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   return (
     <div style={{
       position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+      background: "linear-gradient(165deg, rgba(5, 33, 79, 0.82) 0%, rgba(15, 23, 42, 0.78) 45%, rgba(3, 23, 51, 0.85) 100%)",
+      backdropFilter: "saturate(115%) blur(14px)",
+      WebkitBackdropFilter: "saturate(115%) blur(14px)",
       zIndex: 99999, fontFamily: "'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif", padding: 16,
     }}>
       <div className="otp-card">

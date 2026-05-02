@@ -296,6 +296,77 @@ Paste into GTM → Custom HTML. Set POPUP_ORIGIN (no trailing slash). Optional: 
     return document.querySelector('.result-wrap[data-vehicle]') || document.querySelector('[data-vehicle]');
   }
 
+  /** Best-effort hero photo from the inventory card DOM (Cars Commerce, Dealer Inspire, etc.) */
+  function imgEffectiveSrc(img) {
+    if (!img) return '';
+    try {
+      if (img.currentSrc) return String(img.currentSrc).trim();
+    } catch (e1) {}
+    return (
+      img.getAttribute('src') ||
+      img.getAttribute('data-src') ||
+      img.getAttribute('data-lazy-src') ||
+      img.getAttribute('data-original') ||
+      ''
+    ).trim();
+  }
+
+  function isLikelyVehicleHeroPhotoUrl(src) {
+    if (!src || typeof src !== 'string') return false;
+    var u = src.trim();
+    if (!u) return false;
+    if (u.indexOf('//') === 0) u = 'https:' + u;
+    if (u.indexOf('http://') !== 0 && u.indexOf('https://') !== 0) return false;
+    var low = u.toLowerCase();
+    if (low.indexOf('vehicle-images.carscommerce') !== -1 || low.indexOf('carscommerce.inc') !== -1)
+      return true;
+    if (low.indexOf('data:image') === 0) return false;
+    if (low.indexOf('am-ford') !== -1 || low.indexOf('amford') !== -1) return false;
+    if (low.indexOf('dealerinspire') !== -1 && (low.indexOf('logo') !== -1 || low.indexOf('am-ford') !== -1))
+      return false;
+    return true;
+  }
+
+  function findVehicleCardHeroImageUrl(root) {
+    if (!root || !root.querySelectorAll) return '';
+    var selectors = [
+      'img[data-testid^="vehicle-image"]',
+      'img[data-testid="vehicle-image-1"]',
+      '[data-testid^="vehicle-image"] img',
+      '.result-vehicle-image img',
+      '.vehicle-image img',
+      '.inventory-image img',
+      '.hit-image img',
+      'a.hit-link img',
+      '.advanced-pricing-vrp-card ~ * img',
+      '.result-wrap .primary-vehicle-photo img'
+    ];
+    var seen = {};
+    var i,
+      j,
+      imgs,
+      img,
+      src,
+      selIdx,
+      imgIdx;
+    for (selIdx = 0; selIdx < selectors.length; selIdx++) {
+      imgs = root.querySelectorAll(selectors[selIdx]);
+      for (imgIdx = 0; imgIdx < imgs.length; imgIdx++) {
+        img = imgs[imgIdx];
+        src = imgEffectiveSrc(img);
+        if (!src || seen[src]) continue;
+        seen[src] = 1;
+        if (isLikelyVehicleHeroPhotoUrl(src)) return src;
+      }
+    }
+    imgs = root.querySelectorAll('img[src*="vehicle-images"], img[data-src*="vehicle-images"]');
+    for (j = 0; j < imgs.length; j++) {
+      src = imgEffectiveSrc(imgs[j]);
+      if (src && isLikelyVehicleHeroPhotoUrl(src)) return src;
+    }
+    return '';
+  }
+
   function digitsFromPriceText(txt) {
     if (!txt) return '';
     var n = String(txt).replace(/[^0-9.]/g, '');
@@ -374,7 +445,11 @@ Paste into GTM → Custom HTML. Set POPUP_ORIGIN (no trailing slash). Optional: 
     var overlay = document.createElement('div');
     overlay.id = 'custom-price-popup';
     overlay.style.cssText =
-      'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:2147483647;display:flex;align-items:center;justify-content:center;';
+      'position:fixed;top:0;left:0;width:100%;height:100%;' +
+      'background:linear-gradient(165deg,rgba(5,33,79,0.5) 0%,rgba(15,23,42,0.55) 100%);' +
+      'backdrop-filter:saturate(115%) blur(12px);' +
+      '-webkit-backdrop-filter:saturate(115%) blur(12px);' +
+      'z-index:2147483647;display:flex;align-items:center;justify-content:center;';
 
     var box = document.createElement('div');
     box.style.cssText =
@@ -403,7 +478,9 @@ Paste into GTM → Custom HTML. Set POPUP_ORIGIN (no trailing slash). Optional: 
 
     iframe.addEventListener('load', function () {
       try {
-        var snapshot =
+        var cardRootForImg = root && root.nodeType === 1 ? root : findVehicleCardRoot(document.body);
+        var heroImg = findVehicleCardHeroImageUrl(cardRootForImg || document.body);
+        var snapshotBase =
           vehicleData && typeof vehicleData === 'object'
             ? Object.assign({}, vehicleData, { embed_page_url: pageUrl })
             : {
@@ -413,6 +490,14 @@ Paste into GTM → Custom HTML. Set POPUP_ORIGIN (no trailing slash). Optional: 
                 vehicle_heading: vehicle,
                 embed_page_url: pageUrl
               };
+        if (heroImg) {
+          snapshotBase = Object.assign({}, snapshotBase, {
+            photoUrl: heroImg,
+            imageUrl: heroImg,
+            heroImage: heroImg
+          });
+        }
+        var snapshot = snapshotBase;
         iframe.contentWindow.postMessage(
           {
             type: 'OTP_EMBED_CONTEXT',
