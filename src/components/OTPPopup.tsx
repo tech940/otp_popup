@@ -148,11 +148,11 @@ function VehicleSidebarPanel({
   return (
     <div className="otp-sidebar">
       <div className="otp-sidebar-inner">
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 24, textAlign: "center" }}>
           <div
             style={{
               background: "#fff",
-              padding: "10px 16px",
+              padding: "12px 24px",
               borderRadius: 10,
               display: "inline-block",
               boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
@@ -162,7 +162,7 @@ function VehicleSidebarPanel({
               src="https://di-uploads-development.dealerinspire.com/amford/uploads/2025/08/Am-ford.png"
               alt="Dealer logo"
               style={{
-                height: 42,
+                height: 56,
                 width: "auto",
                 objectFit: "contain",
                 display: "block",
