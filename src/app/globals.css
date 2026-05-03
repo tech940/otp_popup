@@ -9,6 +9,16 @@
   padding: 0;
 }
 
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+}
+
+
 :root {
   --brand-color: #05214F;
 }
@@ -23,6 +33,12 @@
   overflow: hidden;
   max-height: 95vh;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.otp-card::-webkit-scrollbar {
+  display: none;
 }
 
 .otp-flex-container {
@@ -43,6 +59,12 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.otp-sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .otp-sidebar-inner {

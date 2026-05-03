@@ -493,21 +493,11 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   return (
     <div style={{
       position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(165deg, rgba(5, 33, 79, 0.82) 0%, rgba(15, 23, 42, 0.78) 45%, rgba(3, 23, 51, 0.85) 100%)",
-      backdropFilter: "saturate(115%) blur(14px)",
-      WebkitBackdropFilter: "saturate(115%) blur(14px)",
+      background: "transparent",
       zIndex: 99999, fontFamily: "'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif", padding: 16,
     }}>
       <div className="otp-card">
-        {/* Close button */}
-        {onClose && (
-          <button onClick={onClose} style={{
-            position: "absolute", top: 14, right: 14, border: "none", background: "none",
-            cursor: "pointer", color: "#9ca3af", fontSize: 20, lineHeight: 1, zIndex: 10,
-            width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
-            borderRadius: "50%", transition: "background 0.2s",
-          }}>✕</button>
-        )}
+
 
         {/* ── STEP 1: Form ── */}
         {step === "form" && (
