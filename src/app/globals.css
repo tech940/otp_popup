@@ -54,7 +54,7 @@ body::-webkit-scrollbar {
   min-width: 280px;
   max-width: 40%;
   background: var(--brand-color);
-  padding: 36px 28px 32px;
+  padding: 26px 28px 32px;
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
@@ -166,7 +166,7 @@ body::-webkit-scrollbar {
 
 .otp-powered-by {
   margin-top: auto;
-  padding-top: 32px;
+  padding-top: 12px;
 }
 
 .desktop-only { display: block; }
