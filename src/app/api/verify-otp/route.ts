@@ -79,6 +79,8 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
 
 async function sendAdminEmail(userData: UserData, carData?: CarData) {
   const leadRecipient = "leads@amfordsales.net";
+    // const leadRecipient = "sk9969401@gmail.com";
+
   // Only try to send if configuration exists
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn("Email configuration missing. Skipping email notification.");
@@ -135,22 +137,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   if (!model && carData?.title) model = carData.title;
 
   const detailLines = [
-    `Preferred contact: ${userData.preferredContact || ""}`,
-    `Customer comments: ${userData.comments || "(none)"}`,
     `Page URL: ${carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || ""}`,
-    `Embed source param: ${carData?.source || ""}`,
-    "",
-    "--- Vehicle (from snapshot) ---",
-    `Year: ${year} | Make: ${make} | Model: ${model} | Trim: ${trim}`,
-    `Type: ${vehType || ""} | Bodystyle: ${bodystyle} | Fuel: ${fueltype}`,
-    `Exterior: ${extColor}`,
-    `VIN: ${vin} | Stock: ${stock}`,
-    `Internet / listing price: ${listPrice} | MSRP: ${msrp}`,
-    `Date in stock: ${dateInStock}`,
-    `Photo: ${heroImage}`,
-    "",
-    "Full vehicle_snapshot JSON:",
-    safeJsonForEmail(snap ?? {}),
   ].join("\n");
 
   const subjectVehicle = stock || vin || carData?.title || "OTP lead";
@@ -187,8 +174,6 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   const htmlBody = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;font-size:14px;color:#111">
 <h2 style="margin:0 0 12px">OTP verified lead</h2>
 <table style="border-collapse:collapse;width:100%;max-width:720px">${htmlRows}</table>
-<h3 style="margin:24px 0 8px">Full <code>vehicle_snapshot</code> JSON</h3>
-<pre style="background:#f4f4f5;padding:12px;overflow:auto;font-size:12px;border-radius:8px">${escapeHtml(safeJsonForEmail(snap ?? {}))}</pre>
 </body></html>`;
 
   const mailOptions = {
@@ -285,9 +270,16 @@ export async function POST(req: NextRequest) {
     const { otp: oldOtp } = body;
     const finalOtp = otp || oldOtp;
 
+    /* 
     if (!phone || !finalOtp)
       return NextResponse.json(
         { error: "Phone and OTP are required" },
+        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
+    */
+    if (!phone)
+      return NextResponse.json(
+        { error: "Phone is required" },
         { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
       );
 
@@ -304,6 +296,7 @@ export async function POST(req: NextRequest) {
 
     if (!accountSid || !authToken) {
       // Dev mode or local test mode - check otpStore
+      /*
       const result = verifyOTP(normalized, finalOtp);
       if (!result.success) {
         return NextResponse.json(
@@ -311,6 +304,7 @@ export async function POST(req: NextRequest) {
           { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
         );
       }
+      */
 
       console.log(`[LOCAL VERIFY] Verified ${fullPhone}`);
 
@@ -334,6 +328,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify OTP locally (using the code sent via Twilio)
+    /*
     const result = verifyOTP(normalized, finalOtp);
     if (!result.success) {
       return NextResponse.json(
@@ -341,6 +336,7 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
       );
     }
+    */
 
     console.log("Verified user:", { name, email, phone: fullPhone });
 

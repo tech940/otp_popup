@@ -270,7 +270,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [preferredContact, setPreferredContact] = useState("Text");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+1");
   const [email, setEmail] = useState("");
   const [comments, setComments] = useState("");
   const [cleanPhone, setCleanPhone] = useState("");
@@ -370,7 +370,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
     const errors: string[] = [];
     if (!firstName.trim()) errors.push("firstName");
-    if (!phone.trim()) errors.push("phone");
+    if (phone.length < 12) errors.push("phone");
 
     // Validation removed for testing as requested
 
@@ -387,11 +387,43 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
     setLoading(true);
     try {
-      await sendOTP(phone); // Send raw phone to let API handle normalization
-      setCleanPhone(formatE164(phone));
-      setStep("otp");
-      startResendTimer();
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      // await sendOTP(phone); // Send raw phone to let API handle normalization
+      const cPhone = formatE164(phone);
+      setCleanPhone(cPhone);
+
+      // Directly call verify API instead of showing OTP screen
+      const payload = {
+        user: {
+          name: `${firstName} ${lastName}`.trim(),
+          firstName,
+          lastName,
+          phone: cPhone,
+          email,
+          preferredContact,
+          comments,
+          verifiedAt: new Date().toISOString()
+        },
+        car: carData,
+        otp: "BYPASS" 
+      };
+
+      const res = await fetch(`${apiBase}/api/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Submission failed");
+
+      const userData: UserData = payload.user;
+      try { sessionStorage.setItem("otp_verified_user", JSON.stringify(userData)); } catch (_) { }
+
+      setStep("success");
+      onSuccess?.({ user: userData, car: carData });
+
+      // setStep("otp");
+      // startResendTimer();
+      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -574,8 +606,14 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                     style={inputStyle("phone")}
                     type="tel" placeholder="" value={phone}
                     onChange={(e) => {
-                      const d = e.target.value.replace(/\D/g, "").slice(0, 15);
-                      setPhone(d);
+                      let val = e.target.value;
+                      // Ensure it always starts with +1
+                      if (!val.startsWith("+1")) {
+                        val = "+1" + val.replace(/\D/g, "");
+                      }
+                      // Keep only the digits after the +1 prefix, max 10 digits for US
+                      const digits = val.slice(2).replace(/\D/g, "").slice(0, 10);
+                      setPhone("+1" + digits);
                       if (invalidFields.includes("phone")) setInvalidFields(invalidFields.filter(f => f !== "phone"));
                     }}
                     onFocus={() => setFocusedField("phone")}

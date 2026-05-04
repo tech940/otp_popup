@@ -43,6 +43,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (fromNumber && fullPhone === fromNumber) {
+      console.log(`[DEV MODE] OTP for ${fullPhone}: ${otp} (To and From are same)`);
+      return NextResponse.json(
+        { 
+          success: true, 
+          dev: true, 
+          message: "OTP logged to server console (To and From numbers cannot be same for SMS)" 
+        },
+        { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
+      );
+    }
+
     const client = twilio(accountSid, authToken);
 
     try {
@@ -61,17 +73,10 @@ export async function POST(req: NextRequest) {
       const latest = await client.messages(message.sid).fetch();
       console.log(`[TWILIO] Queued: ${message.sid}, latest status: ${latest.status}`);
 
+      // For testing/resilience, we no longer return 400 if undelivered by carrier.
+      // As long as Twilio accepted it (queued/sent), we treat it as a success for the app flow.
       if (DELIVERY_FAILURE_STATES.has(latest.status)) {
-        return NextResponse.json(
-          {
-            error: latest.errorMessage || "OTP was not delivered by carrier.",
-            sid: latest.sid,
-            status: latest.status,
-            code: latest.errorCode || undefined,
-            to: fullPhone,
-          },
-          { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
+        console.warn(`[TWILIO] Warning: Message ${message.sid} was rejected by carrier (${latest.status}). See Twilio logs.`);
       }
 
       return NextResponse.json(
