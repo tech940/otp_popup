@@ -118,8 +118,8 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
       }}>
         {/* Top Header Section */}
         <div style={{
-          background: `linear-gradient(135deg, ${BRAND} 0%, ${BRAND_SECONDARY} 100%)`,
-          padding: "24px 20px",
+          background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+          padding: "16px 20px",
           textAlign: "center",
           position: "relative",
           color: "white"
@@ -145,52 +145,52 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
             </svg>
           </button>
 
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginBottom: 8 }}>
             <div style={{
               background: "#fff",
-              padding: "8px 16px",
+              padding: "6px 12px",
               borderRadius: 8,
               boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
             }}>
-              <img 
-                src="https://di-uploads-development.dealerinspire.com/amford/uploads/2025/08/Am-ford.png" 
-                alt="AM Ford" 
-                style={{ height: 36, width: "auto", objectFit: "contain", display: "block" }}
+              <img
+                src="https://di-uploads-development.dealerinspire.com/amford/uploads/2025/08/Am-ford.png"
+                alt="AM Ford"
+                style={{ height: 28, width: "auto", objectFit: "contain", display: "block" }}
               />
             </div>
           </div>
 
           <div style={{ position: "relative", zIndex: 1 }}>
-            <h1 style={{ 
-              fontSize: 54, fontWeight: 900, margin: 0, lineHeight: 1, 
+            <h1 style={{
+              fontSize: 42, fontWeight: 900, margin: 0, lineHeight: 1,
               letterSpacing: "-0.04em", fontStyle: "italic", textShadow: "0 4px 12px rgba(0,0,0,0.2)"
             }}>
-              $500 <span style={{ fontSize: 28 }}>OFF</span>
+              $500 <span style={{ fontSize: 22 }}>OFF</span>
             </h1>
-            <p style={{ 
-              fontSize: 16, fontWeight: 700, margin: "6px 0", letterSpacing: "0.05em",
-              textTransform: "uppercase", opacity: 0.9 
+            <p style={{
+              fontSize: 14, fontWeight: 700, margin: "4px 0", letterSpacing: "0.05em",
+              textTransform: "uppercase", opacity: 0.9
             }}>
               Your New Vehicle Purchase
             </p>
             
-            <div style={{ 
-              height: 2, width: 60, background: "white", margin: "14px auto", opacity: 0.3 
+            <div style={{
+              height: 2, width: 50, background: "white", margin: "10px auto", opacity: 0.3
             }}></div>
             
-            <p style={{ fontSize: 9, opacity: 0.6, maxWidth: 380, margin: "0 auto", lineHeight: 1.3 }}>
+            <p style={{ fontSize: 8, opacity: 0.6, maxWidth: 380, margin: "0 auto", lineHeight: 1.3 }}>
               *$500 off the list price of any new vehicle purchase. Cannot be combined with other offers. Offer not redeemable on past purchases. See dealer for complete details. Must present at time of write-up.
             </p>
           </div>
         </div>
 
         {/* Form Section */}
-        <form onSubmit={handleSubmit} style={{ padding: "24px 24px 32px" }}>
-          <div className="offer-grid" style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", 
-            gap: 12, 
-            marginBottom: 12 
+        <form onSubmit={handleSubmit} style={{ padding: "20px 24px 24px" }}>
+          <div className="offer-grid" style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            marginBottom: 12
           }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6 }}>FIRST NAME</label>
@@ -222,11 +222,11 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
             </div>
           </div>
 
-          <div className="offer-grid" style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", 
-            gap: 12, 
-            marginBottom: 18 
+          <div className="offer-grid" style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 12,
+            marginBottom: 16
           }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", display: "block", marginBottom: 6 }}>PHONE</label>
@@ -268,11 +268,11 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
             disabled={loading}
             style={{
-              width: "100%", padding: "14px", background: BRAND, color: "white",
+              width: "100%", padding: "12px", background: BRAND, color: "white",
               border: "none", borderRadius: 10, fontSize: 15, fontWeight: 800,
               cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.05em",
               textTransform: "uppercase", boxShadow: `0 8px 20px ${BRAND}44`,
@@ -283,9 +283,9 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
             {loading ? "Processing..." : "Submit Offer"}
           </button>
 
-          <div style={{ 
-            display: "flex", justifyContent: "space-between", marginTop: 18, 
-            fontSize: 11, color: "#9ca3af", fontWeight: 600 
+          <div style={{
+            display: "flex", justifyContent: "space-between", marginTop: 14,
+            fontSize: 11, color: "#9ca3af", fontWeight: 600
           }}>
             <a href="https://www.amfordashtabula.com/terms-of-use/" target="_blank" rel="noopener noreferrer" style={{ color: "#9ca3af", textDecoration: "underline" }}>Terms & Conditions</a>
             <button type="button" onClick={onClose} style={{ 
