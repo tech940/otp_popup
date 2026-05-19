@@ -1,6 +1,6 @@
 <script>
 (function () {
-  var POPUP_ORIGIN = 'https://otp-popup.vercel.app';
+  var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app/';
   var VINS_STORAGE_KEY = 'otp_popup_unlocked_vins_v1';
   var GLOBAL_VERIFY_KEY = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
@@ -233,14 +233,6 @@
     var box = document.createElement('div');
     box.style.cssText = 'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
 
-    var closeBtn = document.createElement('button');
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText =
-      'position:absolute;top:12px;right:16px;background:#fff;border:none;font-size:22px;' +
-      'cursor:pointer;z-index:10;width:36px;height:36px;border-radius:50%;box-shadow:0 4px 10px rgba(0,0,0,0.15);';
-    closeBtn.onclick = removePopupOverlay;
-
     var iframe = document.createElement('iframe');
     iframe.src = POPUP_ORIGIN + '/?vin=' + encodeURIComponent(ctx.vin) +
       '&stock=' + encodeURIComponent(ctx.stock) +
@@ -264,8 +256,14 @@
       } catch (err) {}
     });
 
+    // Listen for close messages from iframe
+    window.addEventListener('message', function(e) {
+      if ((e.data && e.data.type === 'OTP_CLOSE') || e.data === 'close-popup') {
+        removePopupOverlay();
+      }
+    });
+
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) removePopupOverlay(); });
-    box.appendChild(closeBtn);
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -544,7 +542,7 @@
   /* ─────────────────────────────────────────────
      CONFIG
   ───────────────────────────────────────────── */
-  var POPUP_ORIGIN         = 'https://otp-popup.vercel.app';
+  var POPUP_ORIGIN         = 'https://am-ford-otp-popup.vercel.app/';
   var VINS_STORAGE_KEY     = 'otp_popup_unlocked_vins_v1';
   var GLOBAL_VERIFY_KEY    = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
@@ -677,6 +675,21 @@
   }
 
   /* ─────────────────────────────────────────────
+     INJECT CSS FOR VDP WRAPPER
+  ───────────────────────────────────────────── */
+  function injectVdpStyles() {
+    if (document.getElementById('otp-vdp-styles')) return;
+    var style = document.createElement('style');
+    style.id = 'otp-vdp-styles';
+    style.textContent =
+      '.vdp-price-box__main-cta-wrapper { padding-bottom: 0 !important; }' +
+      '.otp-vdp-teaser-host { width: 100%; box-sizing: border-box; cursor: pointer; margin-bottom: 0; display: flex; justify-content: center; }' +
+      '.otp-vdp-teaser-host img { display: block; width: 100%; max-width: 100%; height: auto; object-fit: contain; }' +
+      '@media (max-width: 767px) { .otp-vdp-teaser-host img { width: 80%; max-width: 80%; } }';
+    document.head.appendChild(style);
+  }
+
+  /* ─────────────────────────────────────────────
      POPUP OVERLAY  (same iframe as listing page)
   ───────────────────────────────────────────── */
   function removePopupOverlay() {
@@ -706,14 +719,6 @@
 
     var box = document.createElement('div');
     box.style.cssText = 'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
-
-    var closeBtn = document.createElement('button');
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText =
-      'position:absolute;top:12px;right:16px;background:#fff;border:none;font-size:22px;' +
-      'cursor:pointer;z-index:10;width:36px;height:36px;border-radius:50%;box-shadow:0 4px 10px rgba(0,0,0,0.15);';
-    closeBtn.onclick = removePopupOverlay;
 
     /* Hero image for the popup */
     var heroImg = '';
@@ -746,8 +751,14 @@
       } catch (err) {}
     });
 
+    // Listen for close messages from iframe
+    window.addEventListener('message', function(e) {
+      if ((e.data && e.data.type === 'OTP_CLOSE') || e.data === 'close-popup') {
+        removePopupOverlay();
+      }
+    });
+
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) removePopupOverlay(); });
-    box.appendChild(closeBtn);
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -930,6 +941,7 @@
 
     hideInstantPrice();
     hideGetTodaysPriceBtn();
+    injectVdpStyles();
     injectUnlockButton();
   }
 

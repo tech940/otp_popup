@@ -31,7 +31,7 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
         price: params.get("price") || "",
         vin: params.get("vin") || "",
         stock: params.get("stock") || "",
-        source: params.get("source") || "offer-popup",
+        source: "500 off Popup",
         pageUrl: params.get("pageUrl") || window.location.href,
       };
 
