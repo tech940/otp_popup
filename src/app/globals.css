@@ -24,6 +24,23 @@ body::-webkit-scrollbar {
   --brand-color: #05214F;
 }
 
+.otp-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  z-index: 99999;
+  font-family: 'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+}
+
 .otp-card {
   position: relative;
   background: #fff;
@@ -161,8 +178,8 @@ body::-webkit-scrollbar {
     border-radius: 16px;
   }
   .otp-close-btn {
-    top: 12px !important;
-    right: 12px !important;
+    top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+    right: calc(12px + env(safe-area-inset-right, 0px)) !important;
     width: 36px !important;
     height: 36px !important;
     background: rgba(255,255,255,0.95) !important;
@@ -179,10 +196,16 @@ body::-webkit-scrollbar {
     border-radius: 0;
   }
   .otp-sidebar {
-    padding: 20px 16px;
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    padding-bottom: 20px;
+    padding-left: calc(16px + env(safe-area-inset-left, 0px));
+    padding-right: calc(16px + env(safe-area-inset-right, 0px));
   }
   .otp-form-panel {
-    padding: 24px 16px 28px;
+    padding-top: 24px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+    padding-left: calc(16px + env(safe-area-inset-left, 0px));
+    padding-right: calc(16px + env(safe-area-inset-right, 0px));
   }
 }
 

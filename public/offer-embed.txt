@@ -1,8 +1,27 @@
 <script>
 (function () {
-  var POPUP_ORIGIN = 'https://otp-popup.vercel.app';
+  var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app';
   var DELAY_SECONDS = 10;
   var SHOW_ONLY_ON_HOME_PAGE = true;
+
+  // ✅ Use localStorage with a TIME-BASED expiry instead of sessionStorage
+  // This way it resets after X hours, not just per-session
+  function isDismissed() {
+    var dismissed = localStorage.getItem("offer_dismissed_until");
+    if (!dismissed) return false;
+    // Expires after 24 hours
+    if (Date.now() > parseInt(dismissed, 10)) {
+      localStorage.removeItem("offer_dismissed_until");
+      return false;
+    }
+    return true;
+  }
+
+  function setDismissed() {
+    // Set expiry 24 hours from now
+    var expiry = Date.now() + (24 * 60 * 60 * 1000);
+    localStorage.setItem("offer_dismissed_until", expiry.toString());
+  }
 
   function removeOfferOverlay() {
     var overlay = document.getElementById('custom-offer-popup');
@@ -11,12 +30,11 @@
   }
 
   function showOfferPopup() {
-    // Dismissal Check
-    if (sessionStorage.getItem("offer_dismissed")) return;
-
+    if (isDismissed()) return;
     removeOfferOverlay();
 
     var pageUrl = window.location.href;
+    var cacheBust = new Date().getTime(); // ✅ Cache buster
 
     var overlay = document.createElement('div');
     overlay.id = 'custom-offer-popup';
@@ -29,47 +47,62 @@
 
     var box = document.createElement('div');
     box.style.cssText =
-      'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
-
-    var closeBtn = document.createElement('button');
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '×';
-    closeBtn.style.cssText =
-      'position:absolute;top:12px;right:16px;background:#fff;border:none;font-size:22px;cursor:pointer;z-index:10;width:36px;height:36px;border-radius:50%;box-shadow:0 4px 10px rgba(0,0,0,0.15);';
-    closeBtn.onclick = function () {
-      removeOfferOverlay();
-      sessionStorage.setItem("offer_dismissed", "true");
-    };
+      'position:relative;width:100%;max-width:1000px;height:100vh;' +
+      'background:transparent;overflow:hidden;';
 
     var iframe = document.createElement('iframe');
     var params =
       '?source=gtm-timed-offer' +
       '&page_url=' + encodeURIComponent(pageUrl) +
-      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN);
+      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN) +
+      '&_=' + cacheBust; // ✅ Prevents iframe from being cached
 
     iframe.src = POPUP_ORIGIN + '/offer' + params;
+    iframe.setAttribute('allow', 'same-origin');
     iframe.style.cssText =
       'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
 
-    box.appendChild(closeBtn);
+    // Click backdrop to close
+    overlay.addEventListener('click', function (ev) {
+      if (ev.target === overlay) {
+        removeOfferOverlay();
+        setDismissed();
+      }
+    });
+
+    // Escape key to close
+    var escHandler = function (ev) {
+      if (ev.key === 'Escape') {
+        removeOfferOverlay();
+        setDismissed();
+        document.removeEventListener('keydown', escHandler);
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    window.addEventListener('message', function (e) {
+      var originCleaned = e.origin.replace(/\/$/, '');
+      var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
+      if (originCleaned !== targetCleaned) return;
+      if ((e.data && e.data.type === 'OFFER_CLOSE') || e.data === 'close-offer') {
+        removeOfferOverlay();
+        setDismissed();
+        document.removeEventListener('keydown', escHandler);
+      }
+    });
+
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
-
-    window.addEventListener('message', function (e) {
-      if (e.origin !== POPUP_ORIGIN) return;
-      if ((e.data && e.data.type === 'OFFER_CLOSE') || e.data === 'close-offer') {
-        removeOfferOverlay();
-        sessionStorage.setItem("offer_dismissed", "true");
-      }
-    });
   }
 
   function initTimedOffer() {
     if (SHOW_ONLY_ON_HOME_PAGE) {
       var path = window.location.pathname;
-      var isHome = path === "/" || path === "/index.php" || path === "" || path.endsWith("/home/");
+      var isHome = path === '/' || path === '' || path === '/index.php' ||
+                   path === '/index.html' || path.endsWith('/home/') ||
+                   path.endsWith('/home');
       if (!isHome) return;
     }
     setTimeout(showOfferPopup, DELAY_SECONDS * 1000);

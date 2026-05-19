@@ -251,6 +251,10 @@ const styles = String.raw`
     align-items: center;
     justify-content: center;
     padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-left: calc(10px + env(safe-area-inset-left, 0px));
+    padding-right: calc(10px + env(safe-area-inset-right, 0px));
     background: transparent;
     z-index: 9999;
     font-family: Inter, sans-serif;
@@ -405,7 +409,7 @@ const styles = String.raw`
     border-radius: 8px;
     border: 2px solid #e9e9e9;
     padding: 0 10px;
-    font-size: 12px;
+    font-size: 16px;
     transition: 0.3s;
     background: #fafafa;
   }
@@ -553,7 +557,7 @@ const styles = String.raw`
 
     .field input {
       height: 32px;
-      font-size: 11px;
+      font-size: 16px;
     }
 
     .offer-btn {

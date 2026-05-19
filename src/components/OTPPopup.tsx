@@ -458,7 +458,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       padding: "10px 12px",
       border: isInvalid ? "2px solid #dc2626" : `1.5px solid ${focusedField === field ? BRAND : "#d1d5db"}`,
       borderRadius: 6,
-      fontSize: 14,
+      fontSize: 16,
       color: "#111827",
       outline: "none",
       background: "#fff",
@@ -469,12 +469,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   }
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      background: "none",
-      zIndex: 99999, fontFamily: "'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif", padding: 16,
-      pointerEvents: "none",
-    }}>
+    <div className="otp-overlay">
       <div className="otp-card" style={{ pointerEvents: "auto" }}>
         {/* Close Button */}
         {onClose && (
