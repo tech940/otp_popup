@@ -44,8 +44,15 @@
     return t.indexOf("get today's price") !== -1 || t.indexOf('get todays price') !== -1;
   }
   function removePopupOverlay() {
-    var o = document.getElementById('custom-price-popup');
-    if (o && o.parentNode) o.parentNode.removeChild(o);
+    var o1 = document.getElementById('custom-price-popup');
+    if (o1 && o1.parentNode) o1.parentNode.removeChild(o1);
+    var o2 = document.getElementById('otp-vdp-popup');
+    if (o2 && o2.parentNode) o2.parentNode.removeChild(o2);
+    try {
+      if (typeof window.__otpScrollY === 'number') {
+        window.scrollTo(0, window.__otpScrollY);
+      }
+    } catch (e) {}
   }
 
   function findInstantPriceBlock(wrap) {
@@ -217,6 +224,7 @@
   }
 
   function openOtpPopupFromRoot(root) {
+    try { window.__otpScrollY = window.scrollY || window.pageYOffset; } catch (e) {}
     removePopupOverlay();
     var pageUrl = window.location.href;
     var ctx = parseVehicleFromClick(root || document.body);
@@ -386,13 +394,10 @@
     var container = point.container;
     var afterEl = point.after;
 
-    /* Insert teaser image first, then unlock button right after it */
-    if (afterEl && afterEl.nextSibling) {
-      container.insertBefore(teaserHost, afterEl.nextSibling);
-      container.insertBefore(wrapper, teaserHost.nextSibling);
-    } else if (afterEl) {
-      container.appendChild(teaserHost);
-      container.appendChild(wrapper);
+    /* Insert before call button if present to place it first on mobile */
+    if (afterEl && afterEl.parentNode) {
+      afterEl.parentNode.insertBefore(teaserHost, afterEl);
+      afterEl.parentNode.insertBefore(wrapper, afterEl);
     } else {
       container.insertBefore(wrapper, container.firstChild);
       container.insertBefore(teaserHost, wrapper);
@@ -467,7 +472,9 @@
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') removePopupOverlay(); });
 
     window.addEventListener('message', function (ev) {
-      if (ev.origin !== POPUP_ORIGIN) return;
+      var originCleaned = ev.origin.replace(/\/$/, '');
+      var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
+      if (originCleaned !== targetCleaned) return;
       var d = ev.data;
       if (d === 'close-popup') { removePopupOverlay(); return; }
       if (d && typeof d === 'object') {
@@ -555,7 +562,10 @@
   function isVdpPage() {
     return !!(
       document.getElementById('price-box') ||
-      document.querySelector('.vdp-price-box')
+      document.querySelector('.vdp-price-box') ||
+      document.querySelector('.vdp-pricebox-cta-button-1') ||
+      document.querySelector('.vdp-price-box__cta') ||
+      document.querySelector('#ap-modal-vin')
     );
   }
   if (!isVdpPage()) {
@@ -667,10 +677,13 @@
      .vdp-pricebox-cta-button-1
   ───────────────────────────────────────────── */
   function hideGetTodaysPriceBtn() {
-    var btn = document.querySelector('.vdp-pricebox-cta-button-1');
-    if (btn && !btn.getAttribute('data-otp-hidden')) {
-      btn.setAttribute('data-otp-hidden', '1');
-      btn.style.setProperty('display', 'none', 'important');
+    var btns = document.querySelectorAll('.vdp-pricebox-cta-button-1, [data-testid="vehicle-cta-1"]');
+    for (var i = 0; i < btns.length; i++) {
+      var btn = btns[i];
+      if (!btn.getAttribute('data-otp-hidden')) {
+        btn.setAttribute('data-otp-hidden', '1');
+        btn.style.setProperty('display', 'none', 'important');
+      }
     }
   }
 
@@ -692,12 +705,8 @@
   /* ─────────────────────────────────────────────
      POPUP OVERLAY  (same iframe as listing page)
   ───────────────────────────────────────────── */
-  function removePopupOverlay() {
-    var o = document.getElementById('otp-vdp-popup');
-    if (o && o.parentNode) o.parentNode.removeChild(o);
-  }
-
   function openOtpPopup() {
+    try { window.__otpScrollY = window.scrollY || window.pageYOffset; } catch (e) {}
     removePopupOverlay();
     var ctx    = getVdpContext();
     var price  = '';
@@ -770,54 +779,42 @@
      Price" button, inside .vdp-price-box__cta
   ───────────────────────────────────────────── */
   function injectUnlockButton() {
-    if (document.getElementById('otp-vdp-unlock-btn')) return;
+    var ctaContainers = [];
+    var query1 = document.querySelectorAll('.vdp-price-box__cta');
+    var query2 = document.querySelectorAll('.vdp-pricebox-cta-wrapper');
+    for (var i = 0; i < query1.length; i++) ctaContainers.push(query1[i]);
+    for (var i = 0; i < query2.length; i++) {
+      if (ctaContainers.indexOf(query2[i]) === -1) ctaContainers.push(query2[i]);
+    }
+    var query3 = document.querySelectorAll('.vdp-pricebox-cta-button-1');
+    for (var i = 0; i < query3.length; i++) {
+      var p = query3[i].parentNode;
+      if (p && ctaContainers.indexOf(p) === -1) ctaContainers.push(p);
+    }
 
-    var cta = document.querySelector('.vdp-price-box__cta');
-    if (!cta) return;
+    /* Remove outer parent containers if a more specific child/nested container is also in the list */
+    var filtered = [];
+    for (var i = 0; i < ctaContainers.length; i++) {
+      var isAncestor = false;
+      for (var j = 0; j < ctaContainers.length; j++) {
+        if (i !== j && ctaContainers[i].contains(ctaContainers[j])) {
+          isAncestor = true;
+          break;
+        }
+      }
+      if (!isAncestor) {
+        filtered.push(ctaContainers[i]);
+      }
+    }
+    ctaContainers = filtered;
 
-    /* ── Teaser image (points arrow toward Unlock button below it) ── */
-    var teaserHost = document.createElement('div');
-    teaserHost.id = 'otp-vdp-teaser-host';
-    teaserHost.className = 'otp-vdp-teaser-host otp-teaser-host';
-    teaserHost.setAttribute('role', 'button');
-    teaserHost.setAttribute('tabindex', '0');
-    teaserHost.setAttribute('aria-label', 'Want a lower price? Click to unlock.');
-    teaserHost.innerHTML =
-      '<img src="' + PRICE_TEASER_IMAGE_URL + '" ' +
-      'alt="Want a lower price? Start here." ' +
-      'loading="lazy" decoding="async" style="margin:0 auto;"/>';
-
-    /* Wrapper — matches the same width/layout as the native CTA buttons */
-    var wrapper = document.createElement('div');
-    wrapper.className = 'vdp-price-box__main-cta-wrapper';
-    wrapper.id        = 'otp-vdp-unlock-wrapper';
-    wrapper.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:6px;';
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id   = 'otp-vdp-unlock-btn';
-    btn.innerHTML =
-      '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-      'stroke-width="2.2" style="vertical-align:-3px;margin-right:8px;" aria-hidden="true">' +
-      '<rect x="5" y="11" width="14" height="10" rx="2"/>' +
-      '<path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg>' +
-      'Unlock Instant Price';
-
-    /*
-      Mirror the exact styles of .vdp-pricebox-cta-button-1 (the green "Get Today's Price" btn)
-      so it sits flush in the sidebar without needing a separate stylesheet.
-      Updated background style to #05214F (navy blue) as requested.
-    */
-    btn.style.cssText =
-      'display:flex;align-items:center;justify-content:center;' +
-      'width:100%;box-sizing:border-box;' +
-      'padding:14px 20px;' +
-      'background:#05214F;color:#fff;' +
-      'border:none;border-radius:0;cursor:pointer;' +
-      'font-weight:600;font-size:15px;font-family:inherit;' +
-      'letter-spacing:0.01em;text-transform:uppercase;' +
-      'position:relative;overflow:hidden;' +
-      'animation:otpVdpPulse 2.8s ease-in-out infinite;';
+    var uninjected = [];
+    for (var i = 0; i < ctaContainers.length; i++) {
+      if (!ctaContainers[i].getAttribute('data-otp-injected')) {
+        uninjected.push(ctaContainers[i]);
+      }
+    }
+    if (uninjected.length === 0) return;
 
     /* Inject keyframes and styles once */
     if (!document.getElementById('otp-vdp-styles')) {
@@ -825,10 +822,10 @@
       st.id = 'otp-vdp-styles';
       st.textContent =
         '@keyframes otpVdpPulse{0%{transform:scale(1);}50%{transform:scale(1.02);}100%{transform:scale(1);}}' +
-        '#otp-vdp-unlock-btn:hover{filter:brightness(1.08);}' +
-        '#otp-vdp-unlock-btn:active{transform:scale(0.97);}' +
+        '.otp-vdp-unlock-btn-class:hover{filter:brightness(1.08);}' +
+        '.otp-vdp-unlock-btn-class:active{transform:scale(0.97);}' +
         /* shimmer sweep / flash effect (matched with listing page specs) */
-        '#otp-vdp-unlock-btn::before{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;' +
+        '.otp-vdp-unlock-btn-class::before{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;' +
         'background:linear-gradient(120deg,transparent,rgba(255,255,255,0.3),transparent);' +
         'filter:blur(8px);animation:otpVdpSweep 3.5s ease-in-out infinite;}' +
         '@keyframes otpVdpSweep{0%{left:-100%;}50%{left:120%;}100%{left:120%;}}' +
@@ -850,23 +847,75 @@
       openOtpPopup();
     };
 
-    btn.addEventListener('click', handleUnlock);
-    teaserHost.addEventListener('click', handleUnlock);
-    teaserHost.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter' || ev.key === ' ') handleUnlock(ev);
-    });
+    for (var idx = 0; idx < uninjected.length; idx++) {
+      var cta = uninjected[idx];
+      cta.setAttribute('data-otp-injected', '1');
 
-    wrapper.appendChild(btn);
+      /* ── Teaser image (points arrow toward Unlock button below it) ── */
+      var teaserHost = document.createElement('div');
+      teaserHost.className = 'otp-vdp-teaser-host otp-teaser-host otp-vdp-teaser-host-instance';
+      teaserHost.setAttribute('role', 'button');
+      teaserHost.setAttribute('tabindex', '0');
+      teaserHost.setAttribute('aria-label', 'Want a lower price? Click to unlock.');
+      teaserHost.innerHTML =
+        '<img src="' + PRICE_TEASER_IMAGE_URL + '" ' +
+        'alt="Want a lower price? Start here." ' +
+        'loading="lazy" decoding="async" style="margin:0 auto;"/>';
 
-    /* Insert before the "Get Today's Price" slot (index 1 in the CTA list) */
-    var ctaBtn1 = cta.querySelector('[data-testid="vehicle-cta-2"]');
-    if (ctaBtn1) {
-      cta.insertBefore(teaserHost, ctaBtn1);
-      cta.insertBefore(wrapper, ctaBtn1);
-    } else {
-      /* Fallback: prepend inside the CTA block */
-      cta.insertBefore(wrapper, cta.firstChild);
-      cta.insertBefore(teaserHost, wrapper);
+      /* Wrapper — matches the same width/layout as the native CTA buttons */
+      var wrapper = document.createElement('div');
+      wrapper.className = 'vdp-price-box__main-cta-wrapper otp-vdp-unlock-wrapper-instance';
+      wrapper.style.cssText = 'width:100%;box-sizing:border-box;margin-bottom:6px;';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'otp-vdp-unlock-btn-class';
+      btn.innerHTML =
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="fill:none !important;">' +
+        '<rect x="5" y="11" width="14" height="10" rx="2" style="fill:none !important; stroke:currentColor !important; stroke-width:2.2 !important;"/>' +
+        '<path d="M7 11V8a5 5 0 0 1 10 0v3" style="fill:none !important; stroke:currentColor !important; stroke-width:2.2 !important;"/></svg>' +
+        'Unlock Instant Price';
+
+      btn.style.cssText =
+        'display:flex;align-items:center;justify-content:center;gap:10px;' +
+        'width:100%;box-sizing:border-box;' +
+        'padding:14px 20px;' +
+        'background:#05214F;color:#fff;' +
+        'border:none;border-radius:0;cursor:pointer;' +
+        'font-weight:600;font-size:15px;font-family:inherit;' +
+        'letter-spacing:0.01em;text-transform:uppercase;' +
+        'position:relative;overflow:hidden;' +
+        'animation:otpVdpPulse 2.8s ease-in-out infinite;';
+
+      btn.addEventListener('click', handleUnlock);
+      teaserHost.addEventListener('click', handleUnlock);
+      teaserHost.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') handleUnlock(ev);
+      });
+
+      wrapper.appendChild(btn);
+
+      /* Find any click-to-call button on mobile VDP to insert before it (only on mobile viewports) */
+      var isMobile = window.innerWidth < 768;
+      var callBtn = null;
+      if (isMobile) {
+        callBtn = cta.querySelector('a[href^="tel:"], button[class*="call"], a[class*="call"], .visible-xs.visible-sm');
+      }
+
+      if (callBtn && callBtn.parentNode) {
+        callBtn.parentNode.insertBefore(teaserHost, callBtn);
+        callBtn.parentNode.insertBefore(wrapper, callBtn);
+      } else {
+        /* Fallback: insert before standard secondary VDP CTA */
+        var ctaBtn1 = cta.querySelector('[data-testid="vehicle-cta-2"]');
+        if (ctaBtn1 && ctaBtn1.parentNode) {
+          ctaBtn1.parentNode.insertBefore(teaserHost, ctaBtn1);
+          ctaBtn1.parentNode.insertBefore(wrapper, ctaBtn1);
+        } else {
+          cta.insertBefore(wrapper, cta.firstChild);
+          cta.insertBefore(teaserHost, wrapper);
+        }
+      }
     }
   }
 
@@ -876,18 +925,17 @@
   function revealPriceOnVdp() {
     revealInstantPrice();
 
-    /* Remove unlock button and teaser image */
-    var w = document.getElementById('otp-vdp-unlock-wrapper');
-    if (w && w.parentNode) w.parentNode.removeChild(w);
-    var t = document.getElementById('otp-vdp-teaser-host');
-    if (t && t.parentNode) t.parentNode.removeChild(t);
-
-    /* Restore the native "Get Today's Price" btn so the page still works */
-    var btn1 = document.querySelector('.vdp-pricebox-cta-button-1');
-    if (btn1) {
-      btn1.removeAttribute('data-otp-hidden');
-      btn1.style.removeProperty('display');
+    /* Remove all injected unlock button wrappers and teaser images */
+    var wrappers = document.querySelectorAll('.otp-vdp-unlock-wrapper-instance');
+    for (var i = 0; i < wrappers.length; i++) {
+      if (wrappers[i].parentNode) wrappers[i].parentNode.removeChild(wrappers[i]);
     }
+    var teasers = document.querySelectorAll('.otp-vdp-teaser-host-instance');
+    for (var i = 0; i < teasers.length; i++) {
+      if (teasers[i].parentNode) teasers[i].parentNode.removeChild(teasers[i]);
+    }
+
+
 
     /* Confetti */
     var pb = getPriceBox();
@@ -936,6 +984,7 @@
     if (k && isKeyUnlocked(k)) {
       /* Already verified on listing page or previously — just reveal */
       revealInstantPrice();
+      hideGetTodaysPriceBtn();
       return;
     }
 
@@ -954,7 +1003,9 @@
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') removePopupOverlay(); });
 
     window.addEventListener('message', function (ev) {
-      if (ev.origin !== POPUP_ORIGIN) return;
+      var originCleaned = ev.origin.replace(/\/$/, '');
+      var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
+      if (originCleaned !== targetCleaned) return;
       var d = ev.data;
       if (d === 'close-popup') { removePopupOverlay(); return; }
       if (!d || typeof d !== 'object') return;

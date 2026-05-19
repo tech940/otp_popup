@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const table = process.env.SUPABASE_LEADS_TABLE || "otp_leads";
+  const table = process.env.SUPABASE_LEADS_TABLE || "leads";
   const { searchParams } = new URL(req.url);
   const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 40));
   const offset = Math.max(0, Number(searchParams.get("offset")) || 0);

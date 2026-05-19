@@ -36,8 +36,8 @@ function cdataSafe(s: string): string {
 }
 
 async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
     console.warn(
       "[SUPABASE] Lead not saved: set SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY on the server.",
@@ -48,7 +48,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
 
-  const table = process.env.SUPABASE_LEADS_TABLE || "otp_leads";
+  const table = process.env.SUPABASE_LEADS_TABLE || "leads";
   const snap = carData?.vehicleSnapshot ?? null;
   const row = {
     first_name: userData.firstName ?? "",
@@ -192,9 +192,18 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
             <stock><![CDATA[${stock}]]></stock>
             <trim><![CDATA[${trim}]]></trim>
             <vin><![CDATA[${vin}]]></vin>
+            <url><![CDATA[${carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || ""}]]></url>
+            <comment><![CDATA[New Submission from ${formTitle}.
+
+${cdataSafe(detailLines)}
+
+User Comments: ${userData.comments || ""}
+]]></comment>
             <comments><![CDATA[New Submission from ${formTitle}.
 
 ${cdataSafe(detailLines)}
+
+User Comments: ${userData.comments || ""}
 ]]></comments>
         </vehicle>
         <customer>
@@ -207,8 +216,9 @@ ${cdataSafe(detailLines)}
                     <postalcode><![CDATA[]]></postalcode>
                 </address>
             </contact>
-            <comments />
+            <comments><![CDATA[${userData.comments || ""}]]></comments>
         </customer>
+        <comments><![CDATA[User Comments: ${userData.comments || ""}]]></comments>
         <vendor>
             <id source="">${dealerName}</id>
             <vendorname><![CDATA[${dealerName}]]></vendorname>
