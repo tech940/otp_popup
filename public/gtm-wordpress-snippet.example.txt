@@ -18,10 +18,14 @@
     } catch (e) {}
   }
   function isGloballyVerified() {
+    if (window.__otpGloballyVerified) return true;
     try { return localStorage.getItem(GLOBAL_VERIFY_KEY) === '1'; } catch (e) { return false; }
   }
   function setGloballyVerified() {
-    try { localStorage.setItem(GLOBAL_VERIFY_KEY, '1'); } catch (e) {}
+    try {
+      window.__otpGloballyVerified = true;
+      localStorage.setItem(GLOBAL_VERIFY_KEY, '1');
+    } catch (e) {}
   }
 
   function unlockKeyFromContext(ctx) {
@@ -474,7 +478,11 @@
     window.addEventListener('message', function (ev) {
       var originCleaned = ev.origin.replace(/\/$/, '');
       var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
-      if (originCleaned !== targetCleaned) return;
+      var isTrusted = (originCleaned === targetCleaned) ||
+                      (originCleaned.indexOf('localhost') !== -1) ||
+                      (originCleaned.indexOf('vercel.app') !== -1) ||
+                      (originCleaned === window.location.origin);
+      if (!isTrusted) return;
       var d = ev.data;
       if (d === 'close-popup') { removePopupOverlay(); return; }
       if (d && typeof d === 'object') {
@@ -597,10 +605,14 @@
     } catch (e) {}
   }
   function isGloballyVerified() {
+    if (window.__otpGloballyVerified) return true;
     try { return localStorage.getItem(GLOBAL_VERIFY_KEY) === '1'; } catch (e) { return false; }
   }
   function setGloballyVerified() {
-    try { localStorage.setItem(GLOBAL_VERIFY_KEY, '1'); } catch (e) {}
+    try {
+      window.__otpGloballyVerified = true;
+      localStorage.setItem(GLOBAL_VERIFY_KEY, '1');
+    } catch (e) {}
   }
 
   /* ─────────────────────────────────────────────
@@ -981,9 +993,9 @@
     var ctx = getVdpContext();
     var k   = unlockKey(ctx);
 
-    if (k && isKeyUnlocked(k)) {
-      /* Already verified on listing page or previously — just reveal */
-      revealInstantPrice();
+    if (isGloballyVerified() || (k && isKeyUnlocked(k))) {
+      /* Already verified on listing page or previously — just reveal and clean up wrappers/teasers */
+      revealPriceOnVdp();
       hideGetTodaysPriceBtn();
       return;
     }
@@ -1005,7 +1017,11 @@
     window.addEventListener('message', function (ev) {
       var originCleaned = ev.origin.replace(/\/$/, '');
       var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
-      if (originCleaned !== targetCleaned) return;
+      var isTrusted = (originCleaned === targetCleaned) ||
+                      (originCleaned.indexOf('localhost') !== -1) ||
+                      (originCleaned.indexOf('vercel.app') !== -1) ||
+                      (originCleaned === window.location.origin);
+      if (!isTrusted) return;
       var d = ev.data;
       if (d === 'close-popup') { removePopupOverlay(); return; }
       if (!d || typeof d !== 'object') return;
@@ -1061,8 +1077,22 @@
 
   /* Re-run if DI loads price box late (AJAX) */
   var _vdpLateObserver = new MutationObserver(function () {
-    if (isVdpPage() && !document.getElementById('otp-vdp-unlock-btn') &&
-        !document.querySelector('.vdp-price-box .price-block[data-otp-hidden]')) {
+    if (!isVdpPage()) return;
+    var ctx = getVdpContext();
+    var k   = unlockKey(ctx);
+
+    if (isGloballyVerified() || (k && isKeyUnlocked(k))) {
+      // If the vehicle is verified, clean up any stray/late injected unlock elements instantly
+      if (document.querySelector('.otp-vdp-unlock-btn-class') || 
+          document.querySelector('.otp-vdp-teaser-host-instance')) {
+        revealPriceOnVdp();
+      }
+      hideGetTodaysPriceBtn();
+      return;
+    }
+
+    // If NOT unlocked, and the button hasn't been injected yet, trigger initialization
+    if (!document.querySelector('.otp-vdp-unlock-btn-class')) {
       initVdp();
     }
   });

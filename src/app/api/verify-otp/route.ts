@@ -50,23 +50,96 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
 
   const table = process.env.SUPABASE_LEADS_TABLE || "leads";
   const snap = carData?.vehicleSnapshot ?? null;
-  const row = {
-    first_name: userData.firstName ?? "",
-    last_name: userData.lastName ?? "",
-    phone: userData.phone,
-    email: userData.email || null,
-    preferred_contact: userData.preferredContact || null,
-    comments: userData.comments || null,
-    verified_at: userData.verifiedAt || null,
-    vehicle_title: carData?.title || null,
-    price: carData?.price != null ? String(carData.price) : null,
-    vin: carData?.vin || null,
-    stock: carData?.stock || null,
-    page_url: carData?.pageUrl || null,
-    embed_source: carData?.source || null,
-    /** Full merged vehicle object (Dealer Inspire / Cars Commerce fields, images, MSRP, colors, etc.) */
-    vehicle_snapshot: snap,
-  };
+  const vin = carData?.vin || (snap && (snap.vin || snap.VIN)) || "";
+
+  let row: Record<string, any>;
+
+  if (table === "leads") {
+    // Look up or insert vehicle in vehicles table to satisfy foreign key link
+    let vehicleId: string | null = null;
+    if (vin) {
+      try {
+        const { data: existingVeh } = await supabase
+          .from("vehicles")
+          .select("id")
+          .eq("vin", vin)
+          .maybeSingle();
+
+        if (existingVeh) {
+          vehicleId = existingVeh.id;
+        } else {
+          // Dynamically seed their vehicles catalog to satisfy foreign key ID
+          const yearVal = pickSnap(snap, ["year"]);
+          const priceVal = carData?.price || pickSnap(snap, ["price"]);
+          const msrpVal = pickSnap(snap, ["msrp", "MSRP"]);
+          const imageVal = pickSnap(snap, ["images", "imageUrl", "imageUrlList", "photoUrl", "heroImage", "heroImageUrl"]);
+
+          const { data: newVeh, error: vehErr } = await supabase
+            .from("vehicles")
+            .insert({
+              vin: vin,
+              stock_number: carData?.stock || pickSnap(snap, ["stock", "stock_number", "stockNumber"]) || "",
+              year: yearVal ? Number(yearVal) : null,
+              make: pickSnap(snap, ["make"]),
+              model: pickSnap(snap, ["model"]),
+              trim: pickSnap(snap, ["trim"]),
+              price: priceVal ? Number(priceVal) : null,
+              msrp: msrpVal ? Number(msrpVal) : null,
+              exterior_color: pickSnap(snap, ["exteriorColor", "exterior_color", "ext_color", "extColor"]),
+              images: imageVal ? [imageVal] : []
+            })
+            .select("id")
+            .single();
+
+          if (!vehErr && newVeh) {
+            vehicleId = newVeh.id;
+          } else if (vehErr) {
+            console.error("[SUPABASE] Seed vehicle failed:", vehErr.message);
+          }
+        }
+      } catch (err) {
+        console.error("[SUPABASE] Vehicle lookup/seed exception:", err);
+      }
+    }
+
+    const detailMsg = [
+      `Vehicle: ${carData?.title || (snap && snap.title) || ""}`,
+      `VIN: ${vin}`,
+      `Stock: ${carData?.stock || (snap && (snap.stock || snap.stock_number)) || ""}`,
+      `Preferred Contact: ${userData.preferredContact || "Any"}`,
+      `Page URL: ${carData?.pageUrl || (snap && snap.embed_page_url) || ""}`,
+      `Source: ${carData?.source || "VDP Unlock"}`,
+      `User Comments: ${userData.comments || ""}`
+    ].join("\n");
+
+    row = {
+      name: `${userData.firstName || ""} ${userData.lastName || ""}`.trim() || "Customer",
+      email: userData.email || null,
+      phone: userData.phone || "",
+      message: detailMsg,
+      vehicle_id: vehicleId,
+      status: "new",
+      source: carData?.source || "VDP Unlock"
+    };
+  } else {
+    // Legacy/fallback schema format
+    row = {
+      first_name: userData.firstName ?? "",
+      last_name: userData.lastName ?? "",
+      phone: userData.phone,
+      email: userData.email || null,
+      preferred_contact: userData.preferredContact || null,
+      comments: userData.comments || null,
+      verified_at: userData.verifiedAt || null,
+      vehicle_title: carData?.title || null,
+      price: carData?.price != null ? String(carData.price) : null,
+      vin: carData?.vin || null,
+      stock: carData?.stock || null,
+      page_url: carData?.pageUrl || null,
+      embed_source: carData?.source || null,
+      vehicle_snapshot: snap,
+    };
+  }
 
   const { error, data } = await supabase.from(table).insert(row).select("id");
   if (error) {
