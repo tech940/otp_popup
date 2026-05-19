@@ -148,21 +148,21 @@ function VehicleSidebarPanel({
   return (
     <div className="otp-sidebar">
       <div className="otp-sidebar-inner">
-        <div style={{ marginBottom: 24, textAlign: "center" }}>
+        <div style={{ marginBottom: 20, textAlign: "center" }}>
           <div
             style={{
               background: "#fff",
-              padding: "12px 24px",
-              borderRadius: 10,
+              padding: "10px 20px",
+              borderRadius: 8,
               display: "inline-block",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
             }}
           >
             <img
               src="https://di-uploads-development.dealerinspire.com/amford/uploads/2025/08/Am-ford.png"
-              alt="Dealer logo"
+              alt="AM Ford"
               style={{
-                height: 56,
+                height: 48,
                 width: "auto",
                 objectFit: "contain",
                 display: "block",
@@ -171,79 +171,25 @@ function VehicleSidebarPanel({
           </div>
         </div>
 
-        <p className="otp-sidebar-intro">{intro}</p>
+        <h2 style={{
+          fontSize: 22,
+          fontWeight: 700,
+          color: "#fff",
+          marginBottom: 12,
+          fontStyle: "italic",
+          lineHeight: 1.2
+        }}>
+          Unlock Your Instant Price
+        </h2>
 
-        {showCard ? (
-          <div className="otp-vehicle-card">
-            <div className="otp-vehicle-card-media">
-              {imageUrl && !imgBroken ? (
-                <img
-                  src={imageUrl}
-                  alt={imgAlt}
-                  loading="lazy"
-                  decoding="async"
-                  onError={() => setImgBroken(true)}
-                />
-              ) : (
-                <div className="otp-vehicle-card-placeholder" aria-hidden>
-                  <svg width="56" height="56" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M5 17l2-5h10l2 5M5 17h14v2H5v-2zm2.5-5L8 9h8l.5 3h-9z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div className="otp-vehicle-card-body">
-              {yearMake ? (
-                <div className="otp-vehicle-card-year-make">{yearMake}</div>
-              ) : null}
-              <div className="otp-vehicle-card-model">
-                {modelTrim || titleFallback || "Your selected vehicle"}
-              </div>
-              {metaLine ? (
-                <div className="otp-vehicle-card-meta">{metaLine}</div>
-              ) : null}
-              {stockLine ? (
-                <div
-                  className="otp-vehicle-card-meta"
-                  style={{ marginTop: metaLine ? 6 : 0, fontSize: 12 }}
-                >
-                  Stock #{stockLine}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {carData.source ? (
-          <div
-            style={{
-              marginTop: 16,
-              fontSize: 10,
-              color: "#ffffff44",
-              wordBreak: "break-all",
-            }}
-          >
-            Source: {carData.source}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="desktop-only otp-powered-by">
-        <div style={{ color: "#ffffff55", fontSize: 11 }}>Powered by</div>
-        <div
-          style={{
-            color: "#ffffff99",
-            fontSize: 13,
-            fontWeight: 600,
-            fontStyle: "italic",
-          }}
-        >
-          AM Ford
-        </div>
+        <p style={{
+          fontSize: 13,
+          color: "#ffffffcc",
+          marginBottom: 0,
+          lineHeight: 1.5
+        }}>
+          Please provide your contact information to reveal this vehicle's Instant Price
+        </p>
       </div>
     </div>
   );
@@ -525,11 +471,49 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   return (
     <div style={{
       position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-      background: "transparent",
+      background: "none",
       zIndex: 99999, fontFamily: "'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif", padding: 16,
+      pointerEvents: "none",
     }}>
-      <div className="otp-card">
-
+      <div className="otp-card" style={{ pointerEvents: "auto" }}>
+        {/* Close Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="otp-close-btn"
+            aria-label="Close popup"
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              background: "rgba(255,255,255,0.9)",
+              border: "none",
+              borderRadius: "50%",
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              zIndex: 10,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#fff";
+              e.currentTarget.style.transform = "scale(1.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.9)";
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        )}
 
         {/* ── STEP 1: Form ── */}
         {step === "form" && (
@@ -538,16 +522,10 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
             {/* Right Panel - Form */}
             <div className="otp-form-panel">
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 6 }}>
-                Contact Information
-              </h3>
-              <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 28 }}>
-                All fields marked with <span style={{ color: "#dc2626" }}>*</span> are required.
-              </p>
 
               <div className="otp-input-grid">
                 {/* First Name */}
-                <div>
+                <div className="otp-name-field">
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
                     First Name <span style={{ color: "#dc2626" }}>*</span>
                   </label>
@@ -562,7 +540,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                 </div>
 
                 {/* Last Name */}
-                <div>
+                <div className="otp-name-field">
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
                     Last Name
                   </label>
@@ -577,7 +555,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                 </div>
 
                 {/* Preferred Contact */}
-                <div>
+                <div className="otp-contact-field">
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
                     Preferred Contact
                   </label>
@@ -592,12 +570,11 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                     <option>Text</option>
                     <option>Call</option>
                     <option>Email</option>
-                    <option>WhatsApp</option>
                   </select>
                 </div>
 
                 {/* Phone */}
-                <div>
+                <div className="otp-phone-field">
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>
                     Phone <span style={{ color: "#dc2626" }}>*</span>
                   </label>
@@ -682,17 +659,12 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                 )}
               </button>
 
-              <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 12, textAlign: "center", lineHeight: 1.5 }}>
-                By requesting Instant Price, you agree that AM FORD Ashtabula and its affiliates, and sales professionals may call/text you about your inquiry, which may involve use of automated means and prerecorded/artificial voices. Message/data rates may apply. You also agree to our
+              <p style={{ fontSize: 10, color: "#9ca3af", marginTop: 12, textAlign: "center", lineHeight: 1.4 }}>
+                By submitting, you agree that AM FORD Ashtabula may contact you. Message/data rates may apply.{" "}
                 <a href="https://www.amfordashtabula.com/terms-of-use/" target="_blank" rel="noopener noreferrer" style={{ color: BRAND, fontWeight: 600, textDecoration: "underline" }}>
-                  terms of use.
+                  Terms of use
                 </a>
               </p>
-
-              <div className="otp-powered-by mobile-only" style={{ textAlign: "center" }}>
-                <div style={{ color: "#9ca3af", fontSize: 11 }}>Powered by</div>
-                <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 600, fontStyle: "italic" }}>AM Ford</div>
-              </div>
             </div>
           </div>
         )}
