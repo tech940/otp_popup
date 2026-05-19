@@ -211,6 +211,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
 
   const detailLines = [
     `Page URL: ${carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || ""}`,
+    `User Comments: ${userData.comments || ""}`,
   ].join("\n");
 
   const subjectVehicle = stock || vin || carData?.title || "OTP lead";
@@ -265,18 +266,9 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
             <stock><![CDATA[${stock}]]></stock>
             <trim><![CDATA[${trim}]]></trim>
             <vin><![CDATA[${vin}]]></vin>
-            <url><![CDATA[${carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || ""}]]></url>
-            <comment><![CDATA[New Submission from ${formTitle}.
-
-${cdataSafe(detailLines)}
-
-User Comments: ${userData.comments || ""}
-]]></comment>
             <comments><![CDATA[New Submission from ${formTitle}.
 
 ${cdataSafe(detailLines)}
-
-User Comments: ${userData.comments || ""}
 ]]></comments>
         </vehicle>
         <customer>
@@ -289,9 +281,8 @@ User Comments: ${userData.comments || ""}
                     <postalcode><![CDATA[]]></postalcode>
                 </address>
             </contact>
-            <comments><![CDATA[${userData.comments || ""}]]></comments>
+            <comments />
         </customer>
-        <comments><![CDATA[User Comments: ${userData.comments || ""}]]></comments>
         <vendor>
             <id source="">${dealerName}</id>
             <vendorname><![CDATA[${dealerName}]]></vendorname>
