@@ -2,7 +2,6 @@
 (function () {
   var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app';
   var DELAY_SECONDS = 5;
-  var SHOW_ONLY_ON_HOME_PAGE = true;
 
   // ✅ Use localStorage with a TIME-BASED expiry instead of sessionStorage
   // This way it resets after X hours, not just per-session
@@ -98,13 +97,15 @@
   }
 
   function initTimedOffer() {
-    if (SHOW_ONLY_ON_HOME_PAGE) {
-      var path = window.location.pathname;
-      var isHome = path === '/' || path === '' || path === '/index.php' ||
-                   path === '/index.html' || path.endsWith('/home/') ||
-                   path.endsWith('/home');
-      if (!isHome) return;
-    }
+    var path = window.location.pathname.toLowerCase();
+    var isHome = path === '/' || path === '' || path === '/index.php' ||
+                 path === '/index.html' || path.endsWith('/home/') ||
+                 path.endsWith('/home');
+    var isSrp = path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1;
+    var isVdp = path.indexOf('/inventory/') !== -1;
+
+    if (!isHome && !isSrp && !isVdp) return;
+
     setTimeout(showOfferPopup, DELAY_SECONDS * 1000);
   }
 
