@@ -1,7 +1,7 @@
 <script>
 (function () {
   var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app';
-  var DELAY_SECONDS = 10;
+  var DELAY_SECONDS = 5;
   var SHOW_ONLY_ON_HOME_PAGE = true;
 
   // ✅ Use localStorage with a TIME-BASED expiry instead of sessionStorage
