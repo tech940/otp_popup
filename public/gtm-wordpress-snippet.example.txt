@@ -6,25 +6,56 @@
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
 
   function getUnlockedKeys() {
-    try { var r = localStorage.getItem(VINS_STORAGE_KEY); return r ? JSON.parse(r) : []; }
-    catch (e) { return []; }
+    try { 
+      var r = localStorage.getItem(VINS_STORAGE_KEY); 
+      if (!r) return [];
+      var data = JSON.parse(r);
+      if (Array.isArray(data)) {
+        localStorage.removeItem(VINS_STORAGE_KEY);
+        return [];
+      } else if (data && data.vins) {
+        if (Date.now() > data.expiry) {
+          localStorage.removeItem(VINS_STORAGE_KEY);
+          return [];
+        }
+        return data.vins;
+      }
+      return [];
+    } catch (e) { return []; }
   }
   function isKeyUnlocked(k) { return k && getUnlockedKeys().indexOf(k) >= 0; }
   function addUnlockedKey(k) {
     if (!k) return;
     try {
       var a = getUnlockedKeys();
-      if (a.indexOf(k) < 0) { a.push(k); localStorage.setItem(VINS_STORAGE_KEY, JSON.stringify(a)); }
+      if (a.indexOf(k) < 0) { 
+        a.push(k); 
+        var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
+        localStorage.setItem(VINS_STORAGE_KEY, JSON.stringify({ vins: a, expiry: expiry })); 
+      }
     } catch (e) {}
   }
   function isGloballyVerified() {
     if (window.__otpGloballyVerified) return true;
-    try { return localStorage.getItem(GLOBAL_VERIFY_KEY) === '1'; } catch (e) { return false; }
+    try { 
+      var val = localStorage.getItem(GLOBAL_VERIFY_KEY);
+      if (!val) return false;
+      if (val === '1') {
+        localStorage.removeItem(GLOBAL_VERIFY_KEY);
+        return false;
+      }
+      if (Date.now() > parseInt(val, 10)) {
+        localStorage.removeItem(GLOBAL_VERIFY_KEY);
+        return false;
+      }
+      return true;
+    } catch (e) { return false; }
   }
   function setGloballyVerified() {
     try {
       window.__otpGloballyVerified = true;
-      localStorage.setItem(GLOBAL_VERIFY_KEY, '1');
+      var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
+      localStorage.setItem(GLOBAL_VERIFY_KEY, expiry.toString());
     } catch (e) {}
   }
 
@@ -593,25 +624,56 @@
      state with your listing-page script)
   ───────────────────────────────────────────── */
   function getUnlockedKeys() {
-    try { var r = localStorage.getItem(VINS_STORAGE_KEY); return r ? JSON.parse(r) : []; }
-    catch (e) { return []; }
+    try { 
+      var r = localStorage.getItem(VINS_STORAGE_KEY); 
+      if (!r) return [];
+      var data = JSON.parse(r);
+      if (Array.isArray(data)) {
+        localStorage.removeItem(VINS_STORAGE_KEY);
+        return [];
+      } else if (data && data.vins) {
+        if (Date.now() > data.expiry) {
+          localStorage.removeItem(VINS_STORAGE_KEY);
+          return [];
+        }
+        return data.vins;
+      }
+      return [];
+    } catch (e) { return []; }
   }
   function isKeyUnlocked(k)  { return k && getUnlockedKeys().indexOf(k) >= 0; }
   function addUnlockedKey(k) {
     if (!k) return;
     try {
       var a = getUnlockedKeys();
-      if (a.indexOf(k) < 0) { a.push(k); localStorage.setItem(VINS_STORAGE_KEY, JSON.stringify(a)); }
+      if (a.indexOf(k) < 0) { 
+        a.push(k); 
+        var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
+        localStorage.setItem(VINS_STORAGE_KEY, JSON.stringify({ vins: a, expiry: expiry })); 
+      }
     } catch (e) {}
   }
   function isGloballyVerified() {
     if (window.__otpGloballyVerified) return true;
-    try { return localStorage.getItem(GLOBAL_VERIFY_KEY) === '1'; } catch (e) { return false; }
+    try { 
+      var val = localStorage.getItem(GLOBAL_VERIFY_KEY);
+      if (!val) return false;
+      if (val === '1') {
+        localStorage.removeItem(GLOBAL_VERIFY_KEY);
+        return false;
+      }
+      if (Date.now() > parseInt(val, 10)) {
+        localStorage.removeItem(GLOBAL_VERIFY_KEY);
+        return false;
+      }
+      return true;
+    } catch (e) { return false; }
   }
   function setGloballyVerified() {
     try {
       window.__otpGloballyVerified = true;
-      localStorage.setItem(GLOBAL_VERIFY_KEY, '1');
+      var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
+      localStorage.setItem(GLOBAL_VERIFY_KEY, expiry.toString());
     } catch (e) {}
   }
 

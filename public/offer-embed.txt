@@ -9,7 +9,7 @@
   function isDismissed() {
     var dismissed = localStorage.getItem("offer_dismissed_until");
     if (!dismissed) return false;
-    // Expires after 24 hours
+    // Expires after 3 days
     if (Date.now() > parseInt(dismissed, 10)) {
       localStorage.removeItem("offer_dismissed_until");
       return false;
@@ -18,8 +18,8 @@
   }
 
   function setDismissed() {
-    // Set expiry 24 hours from now
-    var expiry = Date.now() + (24 * 60 * 60 * 1000);
+    // Set expiry 3 days from now
+    var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
     localStorage.setItem("offer_dismissed_until", expiry.toString());
   }
 
