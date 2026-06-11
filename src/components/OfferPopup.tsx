@@ -166,7 +166,7 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
                 <label>EMAIL</label>
                 <input 
                   type="email" 
-                  placeholder="john@example.com"
+                   placeholder="john@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -187,8 +187,6 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
 
             {/* CTA */}
             <button className="offer-btn" type="submit" disabled={loading}>
-
-              <div className="gift-icon">🎁</div>
 
               <div className="btn-content">
                 <h3>{loading ? "PROCESSING..." : "CLAIM MY $500 OFF"}</h3>
@@ -446,18 +444,6 @@ const styles = String.raw`
   .offer-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
-  }
-
-  .gift-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.15);
-    font-size: 12px;
-    flex-shrink: 0;
   }
 
   .btn-content {

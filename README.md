@@ -164,7 +164,7 @@ Response: { "success": true, "message": "OTP sent successfully" }
 ### POST `/api/verify-otp`
 
 ```json
-Request:  { "phone": "+919876543210", "otp": "123456", "name": "John", "email": "john@example.com" }
+Request:  { "phone": "+919876543210", "otp": "123456", "name": "John", "email": "john@gmail.com" }
 Response: { "success": true, "message": "Phone verified!", "user": { "name", "email", "phone" } }
 ```
 

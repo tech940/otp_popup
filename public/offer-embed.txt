@@ -1,7 +1,32 @@
 <script>
 (function () {
   var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app';
-  var DELAY_SECONDS = 5;
+  var ENQUIRY_KEYS = ["offer_dismissed_until","otp_verified_user","otp_enquiry_start"];
+
+  function clearOldEnquiry() {
+    var oneDay = 24 * 60 * 60 * 1000;
+    var start = parseInt(localStorage.getItem("otp_enquiry_start") || "0", 10);
+    if (!start || Date.now() - start > oneDay) {
+      ENQUIRY_KEYS.forEach(function(k){
+        try { localStorage.removeItem(k); } catch(_){}
+        try { sessionStorage.removeItem(k); } catch(_){}
+      });
+      localStorage.setItem("otp_enquiry_start", Date.now().toString());
+    }
+  }
+
+  function clearEnquiryCookies() {
+    var rx = /^(otp_|offer_)/;
+    document.cookie.split(";").forEach(function(c) {
+      var name = c.split("=")[0].trim();
+      if (rx.test(name)) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    });
+  }
+
+  clearOldEnquiry();
+  clearEnquiryCookies();
 
   // ✅ Use localStorage with a TIME-BASED expiry instead of sessionStorage
   // This way it resets after X hours, not just per-session
@@ -106,7 +131,8 @@
 
     if (!isHome && !isSrp && !isVdp) return;
 
-    setTimeout(showOfferPopup, DELAY_SECONDS * 1000);
+    var delaySeconds = isVdp ? 4 : isSrp ? 6 : 5;
+    setTimeout(showOfferPopup, delaySeconds * 1000);
   }
 
   window.OfferPopup = { open: showOfferPopup, close: removeOfferOverlay };

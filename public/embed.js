@@ -13,8 +13,33 @@
  *   data-on-success   Name of a global function to call on successful verification
  */
 (function () {
+  var ENQUIRY_KEYS = ["otp_enquiry_start","offer_dismissed_until","otp_verified_user"];
+
+  function clearOldEnquiry() {
+    var oneDay = 24 * 60 * 60 * 1000;
+    var start = parseInt(localStorage.getItem("otp_enquiry_start") || "0", 10);
+    if (!start || Date.now() - start > oneDay) {
+      ENQUIRY_KEYS.forEach(function(k){
+        try { localStorage.removeItem(k); } catch(_){}
+        try { sessionStorage.removeItem(k); } catch(_){}
+      });
+      localStorage.setItem("otp_enquiry_start", Date.now().toString());
+    }
+  }
+
+  function clearEnquiryCookies() {
+    var rx = /^(otp_|offer_)/;
+    document.cookie.split(";").forEach(function(c) {
+      var name = c.split("=")[0].trim();
+      if (rx.test(name)) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    });
+  }
+
+  clearOldEnquiry();
+  clearEnquiryCookies();
   const script = document.currentScript;
-  const origin = new URL(script.src).origin;
 
   const triggerSelector = script.getAttribute("data-trigger") || null;
   const onSuccessFnName = script.getAttribute("data-on-success") || null;
