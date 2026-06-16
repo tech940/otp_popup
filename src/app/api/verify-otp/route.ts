@@ -175,7 +175,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   );
 
   const adfDate = new Date().toISOString();
-  const formTitle = "OTP Verification Popup";
+  const popupSource = carData?.source || "OTP Portal";
   const dealerName = "Am Ford";
   const snap = carData?.vehicleSnapshot ?? undefined;
 
@@ -246,7 +246,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
     .join("");
 
   const htmlBody = `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;font-size:14px;color:#111">
-<h2 style="margin:0 0 12px">OTP verified lead</h2>
+<h2 style="margin:0 0 12px">${popupSource} — verified lead</h2>
 <table style="border-collapse:collapse;width:100%;max-width:720px">${htmlRows}</table>
 </body></html>`;
 
@@ -266,7 +266,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
             <stock><![CDATA[${stock}]]></stock>
             <trim><![CDATA[${trim}]]></trim>
             <vin><![CDATA[${vin}]]></vin>
-            <comments><![CDATA[New Submission from ${formTitle}.
+            <comments><![CDATA[New Submission from ${popupSource}.
 
 ${cdataSafe(detailLines)}
 ]]></comments>
@@ -300,8 +300,8 @@ ${cdataSafe(detailLines)}
             </contact>
         </vendor>
         <provider>
-            <id source="">OTP_PORTAL</id>
-            <name><![CDATA[Dealer Inspire/${formTitle}]]></name>
+            <id source="">${popupSource}</id>
+            <name><![CDATA[Dealer Inspire/${popupSource}]]></name>
             <url><![CDATA[http://www.dealerinspire.com]]></url>
             <email><![CDATA[support@dealerinspire.com]]></email>
             <phone><![CDATA[855-357-4677]]></phone>

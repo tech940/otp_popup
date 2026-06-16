@@ -282,6 +282,7 @@
       '&price=' + encodeURIComponent(ctx.price) +
       '&vehicle=' + encodeURIComponent(ctx.vehicle) +
       '&page_url=' + encodeURIComponent(pageUrl) +
+      '&source=SRP+Unlock' +
       '&_=' + Date.now();
     iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
 
@@ -293,7 +294,7 @@
           : { vin: ctx.vin, stock: ctx.stock, price: ctx.price, vehicle_heading: ctx.vehicle, embed_page_url: pageUrl };
         if (heroImg) snap = Object.assign({}, snap, { photoUrl: heroImg, imageUrl: heroImg, heroImage: heroImg });
         iframe.contentWindow.postMessage({
-          type: 'OTP_EMBED_CONTEXT', pageUrl: pageUrl,
+          type: 'OTP_EMBED_CONTEXT', pageUrl: pageUrl, source: 'SRP Unlock',
           vin: ctx.vin, stock: ctx.stock, price: ctx.price, vehicle: ctx.vehicle, vehicleData: snap
         }, '*');
       } catch (err) {}
@@ -815,6 +816,7 @@
       '&price='      + encodeURIComponent(price) +
       '&vehicle='    + encodeURIComponent(vehicle) +
       '&page_url='   + encodeURIComponent(window.location.href) +
+      '&source=VDP+Unlock' +
       '&_='          + Date.now();
     iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;';
 
@@ -822,6 +824,7 @@
       try {
         iframe.contentWindow.postMessage({
           type:        'OTP_EMBED_CONTEXT',
+          source:      'VDP Unlock',
           pageUrl:     window.location.href,
           vin:         ctx.vin,
           stock:       ctx.stock,
