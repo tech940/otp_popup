@@ -20,7 +20,12 @@ interface OfferPopupProps {
 
 function buildSourceLabel(pageSource: string): string {
   if (!pageSource) return "500 off Popup";
-  return "500 off Popup (" + pageSource + ")";
+  const labels: Record<string, string> = {
+    Home: "Home page",
+    SRP: "Listing page",
+    VDP: "VDP page",
+  };
+  return "500 off Popup (" + (labels[pageSource] || pageSource) + ")";
 }
 
 export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSource = "", initialCarData }: OfferPopupProps) {
@@ -337,14 +342,12 @@ const styles = String.raw`
     font-size: 14px;
     cursor: pointer;
     z-index: 20;
-    transition: 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   .offer-close:hover {
-    transform: scale(1.08);
     background: rgba(255, 255, 255, 0.25);
   }
 
@@ -462,7 +465,6 @@ const styles = String.raw`
     border: 2px solid #e9e9e9;
     padding: 0 10px;
     font-size: 16px;
-    transition: 0.3s;
     background: #fafafa;
   }
 
@@ -488,11 +490,9 @@ const styles = String.raw`
     overflow: hidden;
     position: relative;
     box-shadow: 0 6px 15px rgba(255, 0, 0, 0.3);
-    transition: 0.3s;
   }
 
   .offer-btn:hover {
-    transform: translateY(-0.5px);
   }
 
   .offer-btn:disabled {

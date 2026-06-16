@@ -462,7 +462,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       color: "#111827",
       outline: "none",
       background: "#fff",
-      transition: "border-color 0.2s",
+      transition: "none",
       boxShadow: focusedField === field ? `0 0 0 3px ${BRAND}22` : "none",
       fontFamily: "inherit",
     }
@@ -492,16 +492,9 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
               cursor: "pointer",
               zIndex: 10,
               boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-              transition: "all 0.2s",
+               transition: "none",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#fff";
-              e.currentTarget.style.transform = "scale(1.1)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.9)";
-              e.currentTarget.style.transform = "scale(1)";
-            }}
+
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -641,7 +634,7 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                   color: "#fff", border: "none", borderRadius: 6,
                   fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
                   letterSpacing: "0.01em", display: "flex", alignItems: "center",
-                  justifyContent: "center", gap: 10, transition: "background 0.2s",
+                  justifyContent: "center", gap: 10,
                 }}
               >
                 {loading ? "Please wait" : (
@@ -718,7 +711,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                       border: `2px solid ${focusedField === `otp${i}` ? BRAND : "#d1d5db"}`,
                       borderRadius: 8, outline: "none", color: "#111827", background: "#fff",
                       boxShadow: focusedField === `otp${i}` ? `0 0 0 3px ${BRAND}22` : "none",
-                      transition: "all 0.15s",
                     }}
                     onFocus={() => setFocusedField(`otp${i}`)}
                     onBlur={() => setFocusedField(null)}

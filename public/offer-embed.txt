@@ -26,22 +26,8 @@
   clearOldEnquiry();
   clearEnquiryCookies();
 
-  // ✅ Lockout uses a dedicated key (offer_lockout_until) that is NOT
-  // force-cleaned by clearOldEnquiry, so it survives across page loads.
-  // After 1 hour the key expires and the user can enquire again.
   function isDismissed() {
-    var until = localStorage.getItem("offer_lockout_until");
-    if (!until) return false;
-    if (Date.now() > parseInt(until, 10)) {
-      localStorage.removeItem("offer_lockout_until");
-      return false;
-    }
-    return true;
-  }
-
-  function setDismissed() {
-    var expiry = Date.now() + (1 * 60 * 60 * 1000); // 1 hour
-    localStorage.setItem("offer_lockout_until", expiry.toString());
+    return false;
   }
 
   function removeOfferOverlay() {
@@ -178,7 +164,6 @@
     overlay.addEventListener('click', function (ev) {
       if (ev.target === overlay) {
         removeOfferOverlay();
-        setDismissed();
       }
     });
 
@@ -186,7 +171,6 @@
     var escHandler = function (ev) {
       if (ev.key === 'Escape') {
         removeOfferOverlay();
-        setDismissed();
         document.removeEventListener('keydown', escHandler);
       }
     };
@@ -199,7 +183,6 @@
       if ((e.data && e.data.type === 'OFFER_CLOSE') || e.data === 'close-offer' ||
           (e.data && e.data.type === 'OFFER_SUBMITTED')) {
         removeOfferOverlay();
-        setDismissed();
         document.removeEventListener('keydown', escHandler);
       }
     });
