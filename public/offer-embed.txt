@@ -4,15 +4,13 @@
   var ENQUIRY_KEYS = ["offer_dismissed_until","otp_verified_user","otp_enquiry_start"];
 
   function clearOldEnquiry() {
-    var oneDay = 24 * 60 * 60 * 1000;
-    var start = parseInt(localStorage.getItem("otp_enquiry_start") || "0", 10);
-    if (!start || Date.now() - start > oneDay) {
-      ENQUIRY_KEYS.forEach(function(k){
-        try { localStorage.removeItem(k); } catch(_){}
-        try { sessionStorage.removeItem(k); } catch(_){}
-      });
-      localStorage.setItem("otp_enquiry_start", Date.now().toString());
-    }
+    // Force-clean any old leftover keys on every page load.
+    // This migrates users with stale 3-day lockout from the previous
+    // system so they can make a fresh enquiry.
+    ENQUIRY_KEYS.forEach(function(k){
+      try { localStorage.removeItem(k); } catch(_){}
+      try { sessionStorage.removeItem(k); } catch(_){}
+    });
   }
 
   function clearEnquiryCookies() {
@@ -28,23 +26,22 @@
   clearOldEnquiry();
   clearEnquiryCookies();
 
-  // ✅ Use localStorage with a TIME-BASED expiry instead of sessionStorage
-  // This way it resets after X hours, not just per-session
+  // ✅ Lockout uses a dedicated key (offer_lockout_until) that is NOT
+  // force-cleaned by clearOldEnquiry, so it survives across page loads.
+  // After 1 hour the key expires and the user can enquire again.
   function isDismissed() {
-    var dismissed = localStorage.getItem("offer_dismissed_until");
-    if (!dismissed) return false;
-    // Expires after 3 days
-    if (Date.now() > parseInt(dismissed, 10)) {
-      localStorage.removeItem("offer_dismissed_until");
+    var until = localStorage.getItem("offer_lockout_until");
+    if (!until) return false;
+    if (Date.now() > parseInt(until, 10)) {
+      localStorage.removeItem("offer_lockout_until");
       return false;
     }
     return true;
   }
 
   function setDismissed() {
-    // Set expiry 3 days from now
-    var expiry = Date.now() + (3 * 24 * 60 * 60 * 1000);
-    localStorage.setItem("offer_dismissed_until", expiry.toString());
+    var expiry = Date.now() + (1 * 60 * 60 * 1000); // 1 hour
+    localStorage.setItem("offer_lockout_until", expiry.toString());
   }
 
   function removeOfferOverlay() {
@@ -53,12 +50,91 @@
     document.body.style.overflow = '';
   }
 
+  function getPageType() {
+    var path = window.location.pathname.toLowerCase();
+    if (path === '/' || path === '' || path === '/index.php' ||
+        path === '/index.html' || path.endsWith('/home/') || path.endsWith('/home')) {
+      return 'Home';
+    }
+    if (path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1) {
+      return 'SRP';
+    }
+    if (path.indexOf('/inventory/') !== -1) {
+      return 'VDP';
+    }
+    return 'Other';
+  }
+
+  function getVdpVehicleData() {
+    var vin = '', stock = '', price = '', vehicle = '', heroImg = '';
+
+    var vinInput = document.getElementById('ap-modal-vin');
+    if (vinInput && vinInput.value) vin = vinInput.value.trim().toUpperCase();
+
+    if (!vin) {
+      var vinSpan = document.querySelector('.di-advanced-pricing-modal .vin');
+      if (vinSpan) {
+        var m = vinSpan.textContent.match(/VIN[:\s]+([A-HJ-NPR-Z0-9]{17})/i);
+        if (m) vin = m[1].toUpperCase();
+      }
+    }
+
+    if (!vin) {
+      var urlMatch = window.location.pathname.match(/([A-HJ-NPR-Z0-9]{17})/i);
+      if (urlMatch) vin = urlMatch[1].toUpperCase();
+    }
+
+    var ipBlock = document.querySelector('.price-block .price-label');
+    if (ipBlock) {
+      ipBlock = ipBlock.closest('.price-block');
+      if (ipBlock) {
+        var priceEl = ipBlock.querySelector('.price');
+        if (priceEl) price = priceEl.textContent.replace(/[^0-9.]/g, '');
+      }
+    }
+
+    vehicle = document.title;
+    var h2 = document.querySelector('.di-advanced-pricing-modal h2');
+    if (h2) vehicle = h2.textContent;
+
+    var imgEl = document.querySelector('.vehicle-images img, .hero-image img, [data-testid="vehicle-image"]');
+    if (imgEl) heroImg = imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '';
+
+    var vehicleData = {
+      vin: vin, stock: stock, price: price,
+      vehicle_heading: vehicle, embed_page_url: window.location.href,
+      photoUrl: heroImg, imageUrl: heroImg, heroImage: heroImg
+    };
+
+    return { vin: vin, stock: stock, price: price, vehicle: vehicle, vehicleData: vehicleData };
+  }
+
   function showOfferPopup() {
     if (isDismissed()) return;
     removeOfferOverlay();
 
     var pageUrl = window.location.href;
-    var cacheBust = new Date().getTime(); // ✅ Cache buster
+    var cacheBust = new Date().getTime();
+    var pageType = getPageType();
+
+    var vdpData = null;
+    if (pageType === 'VDP') {
+      vdpData = getVdpVehicleData();
+    }
+
+    var params =
+      '?source=gtm-timed-offer' +
+      '&page_type=' + encodeURIComponent(pageType) +
+      '&page_url=' + encodeURIComponent(pageUrl) +
+      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN) +
+      '&_=' + cacheBust;
+
+    if (vdpData) {
+      params += '&vin=' + encodeURIComponent(vdpData.vin) +
+                '&stock=' + encodeURIComponent(vdpData.stock) +
+                '&price=' + encodeURIComponent(vdpData.price) +
+                '&vehicle=' + encodeURIComponent(vdpData.vehicle);
+    }
 
     var overlay = document.createElement('div');
     overlay.id = 'custom-offer-popup';
@@ -75,16 +151,28 @@
       'background:transparent;overflow:hidden;';
 
     var iframe = document.createElement('iframe');
-    var params =
-      '?source=gtm-timed-offer' +
-      '&page_url=' + encodeURIComponent(pageUrl) +
-      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN) +
-      '&_=' + cacheBust; // ✅ Prevents iframe from being cached
-
     iframe.src = POPUP_ORIGIN + '/offer' + params;
     iframe.setAttribute('allow', 'same-origin');
     iframe.style.cssText =
       'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
+
+    // Send vehicle context to iframe after it loads
+    if (vdpData) {
+      iframe.addEventListener('load', function () {
+        try {
+          iframe.contentWindow.postMessage({
+            type: 'OTP_EMBED_CONTEXT',
+            pageUrl: pageUrl,
+            page_type: pageType,
+            vin: vdpData.vin,
+            stock: vdpData.stock,
+            price: vdpData.price,
+            vehicle: vdpData.vehicle,
+            vehicleData: vdpData.vehicleData
+          }, '*');
+        } catch (err) {}
+      });
+    }
 
     // Click backdrop to close
     overlay.addEventListener('click', function (ev) {
@@ -108,7 +196,8 @@
       var originCleaned = e.origin.replace(/\/$/, '');
       var targetCleaned = POPUP_ORIGIN.replace(/\/$/, '');
       if (originCleaned !== targetCleaned) return;
-      if ((e.data && e.data.type === 'OFFER_CLOSE') || e.data === 'close-offer') {
+      if ((e.data && e.data.type === 'OFFER_CLOSE') || e.data === 'close-offer' ||
+          (e.data && e.data.type === 'OFFER_SUBMITTED')) {
         removeOfferOverlay();
         setDismissed();
         document.removeEventListener('keydown', escHandler);
@@ -122,16 +211,10 @@
   }
 
   function initTimedOffer() {
-    var path = window.location.pathname.toLowerCase();
-    var isHome = path === '/' || path === '' || path === '/index.php' ||
-                 path === '/index.html' || path.endsWith('/home/') ||
-                 path.endsWith('/home');
-    var isSrp = path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1;
-    var isVdp = path.indexOf('/inventory/') !== -1;
+    var pageType = getPageType();
+    if (pageType === 'Other') return;
 
-    if (!isHome && !isSrp && !isVdp) return;
-
-    var delaySeconds = isVdp ? 4 : isSrp ? 6 : 5;
+    var delaySeconds = pageType === 'VDP' ? 4 : pageType === 'SRP' ? 6 : 5;
     setTimeout(showOfferPopup, delaySeconds * 1000);
   }
 

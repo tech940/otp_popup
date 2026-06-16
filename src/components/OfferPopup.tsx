@@ -1,12 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface CarData {
+  title: string;
+  price: string;
+  vin: string;
+  stock: string;
+  pageUrl: string;
+  vehicleSnapshot?: Record<string, unknown> | null;
+}
 
 interface OfferPopupProps {
   onClose?: () => void;
+  onSubmitted?: () => void;
   apiBase?: string;
+  pageSource?: string;
+  initialCarData?: CarData | null;
 }
 
-export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
+function buildSourceLabel(pageSource: string): string {
+  if (!pageSource) return "500 off Popup";
+  return "500 off Popup (" + pageSource + ")";
+}
+
+export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSource = "", initialCarData }: OfferPopupProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
@@ -15,22 +32,55 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
+  const [carData, setCarData] = useState<CarData>(() => {
+    if (initialCarData) return initialCarData;
+    if (typeof window === "undefined") return { title: "", price: "", vin: "", stock: "", pageUrl: "" };
+    const p = new URLSearchParams(window.location.search);
+    return {
+      title: p.get("vehicle") || p.get("title") || "General Offer Inquiry",
+      price: p.get("price") || "",
+      vin: p.get("vin") || "",
+      stock: p.get("stock") || "",
+      pageUrl: p.get("pageUrl") || window.location.href,
+    };
+  });
+
+  useEffect(() => {
+    if (initialCarData) {
+      setCarData(initialCarData);
+    }
+  }, [initialCarData]);
+
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || d.type !== "OTP_EMBED_CONTEXT") return;
+      const str = (v: unknown) => (typeof v === "string" ? v : "");
+      setCarData((prev) => {
+        const snap =
+          d.vehicleData != null && typeof d.vehicleData === "object" && !Array.isArray(d.vehicleData)
+            ? (d.vehicleData as Record<string, unknown>)
+            : prev.vehicleSnapshot;
+        return {
+          title: str(d.vehicle) || str(d.title) || prev.title,
+          price: str(d.price) || prev.price,
+          vin: str(d.vin) || prev.vin,
+          stock: str(d.stock) || prev.stock,
+          pageUrl: str(d.pageUrl) || str(d.page_url) || prev.pageUrl,
+          vehicleSnapshot: snap ?? prev.vehicleSnapshot,
+        };
+      });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const params = new URLSearchParams(window.location.search);
-      const carData = {
-        title: params.get("vehicle") || params.get("title") || "General Offer Inquiry",
-        price: params.get("price") || "",
-        vin: params.get("vin") || "",
-        stock: params.get("stock") || "",
-        source: "500 off Popup",
-        pageUrl: params.get("pageUrl") || window.location.href,
-      };
-
       const payload = {
         user: {
           firstName,
@@ -41,7 +91,10 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
           comments: "Submitted via $500 OFF Offer Popup",
           verifiedAt: new Date().toISOString(),
         },
-        car: carData,
+        car: {
+          ...carData,
+          source: buildSourceLabel(pageSource),
+        },
         otp: "BYPASS_OFFER"
       };
 
@@ -55,6 +108,7 @@ export default function OfferPopup({ onClose, apiBase = "" }: OfferPopupProps) {
       if (!res.ok) throw new Error(data.error || "Submission failed");
 
       setSubmitted(true);
+      onSubmitted?.();
     } catch (err: any) {
       setError(err.message || "Something went wrong. Please try again.");
     } finally {
