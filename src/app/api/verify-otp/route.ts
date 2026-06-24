@@ -32,6 +32,13 @@ interface UserData {
   name?: string;
 }
 
+interface SaveResult {
+  ok: boolean;
+  table: string;
+  id?: string | null;
+  error?: string;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -76,14 +83,18 @@ async function insertWithFallbacks(
   return lastResult!;
 }
 
-async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
+async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promise<SaveResult> {
   const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
     console.warn(
       "[SUPABASE] Lead not saved: set SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY on the server.",
     );
-    return;
+    return {
+      ok: false,
+      table: "leads",
+      error: "Missing Supabase server configuration",
+    };
   }
 
   const smsConsentChecked = Boolean(userData.smsConsentChecked);
@@ -98,7 +109,13 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
     : null;
 
   const supabase = getSupabaseAdmin();
-  if (!supabase) return;
+  if (!supabase) {
+    return {
+      ok: false,
+      table: "leads",
+      error: "Supabase admin client unavailable",
+    };
+  }
 
   const table = process.env.SUPABASE_LEADS_TABLE || "leads";
   const snap = carData?.vehicleSnapshot ?? null;
@@ -178,6 +195,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
       vehicle_id: vehicleId,
       status: "new",
       source: carData?.source || "VDP Unlock",
+      vehicle_snapshot: snap,
       sms_consent_checked: smsConsentChecked,
       sms_consent_text: smsConsentText,
       sms_consent_at: smsConsentAt,
@@ -248,10 +266,19 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
   ]);
   if (error) {
     console.error("[SUPABASE] insert failed:", error.message, error.code, error.details, error.hint);
-    return;
+    return {
+      ok: false,
+      table,
+      error: error.message || "Lead insert failed",
+    };
   }
   const inserted = Array.isArray(data) ? data[0] : data;
   console.log("[SUPABASE] Lead inserted:", table, inserted?.id ?? "(no id)");
+  return {
+    ok: true,
+    table,
+    id: inserted?.id ?? null,
+  };
 }
 
 function inferPopupVariant(carData?: CarData): string {
@@ -259,9 +286,15 @@ function inferPopupVariant(carData?: CarData): string {
   return source.includes("500 off") ? "offer" : "instant_price";
 }
 
-async function savePopupActivityToSupabase(userData: UserData, carData?: CarData) {
+async function savePopupActivityToSupabase(userData: UserData, carData?: CarData): Promise<SaveResult> {
   const supabase = getSupabaseAdmin();
-  if (!supabase) return;
+  if (!supabase) {
+    return {
+      ok: false,
+      table: "popup_activity_tracker",
+      error: "Supabase admin client unavailable",
+    };
+  }
 
   const snap = carData?.vehicleSnapshot ?? null;
   const smsConsentChecked = Boolean(userData.smsConsentChecked);
@@ -352,11 +385,20 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
       error.details,
       error.hint,
     );
-    return;
+    return {
+      ok: false,
+      table: "popup_activity_tracker",
+      error: error.message || "Popup activity insert failed",
+    };
   }
 
   const inserted = Array.isArray(data) ? data[0] : data;
   console.log("[SUPABASE] Activity inserted:", inserted?.id ?? "(no id)");
+  return {
+    ok: true,
+    table: "popup_activity_tracker",
+    id: inserted?.id ?? null,
+  };
 }
 
 async function sendAdminEmail(userData: UserData, carData?: CarData) {
@@ -605,20 +647,36 @@ export async function POST(req: NextRequest) {
 
       // Send email notification to admin
       const adminUserData = { ...userData, phone: fullPhone };
+      let activityResult: SaveResult | null = null;
+      let leadResult: SaveResult | null = null;
+      let emailSent = false;
       try {
-        await savePopupActivityToSupabase(adminUserData, carData);
+        activityResult = await savePopupActivityToSupabase(adminUserData, carData);
       } catch (activityError) {
         console.error("Activity tracker save failed (Local Verify):", activityError);
       }
       try {
-        await saveLeadToSupabase(adminUserData, carData);
+        leadResult = await saveLeadToSupabase(adminUserData, carData);
       } catch (leadError) {
         console.error("Lead save failed (Local Verify):", leadError);
       }
       try {
         await sendAdminEmail(adminUserData, carData);
+        emailSent = true;
       } catch (emailError) {
         console.error("Email sending failed (Local Verify):", emailError);
+      }
+
+      if (activityResult && !activityResult.ok) {
+        console.error("[VERIFY] popup_activity_tracker save reported failure:", activityResult.error);
+      }
+      if (leadResult && !leadResult.ok) {
+        console.error("[VERIFY] leads save reported failure:", {
+          error: leadResult.error,
+          phone: adminUserData.phone,
+          source: carData?.source || null,
+          pageUrl: carData?.pageUrl || null,
+        });
       }
 
       return NextResponse.json(
@@ -626,6 +684,13 @@ export async function POST(req: NextRequest) {
           success: true,
           message: "Local verification successful",
           user: { name, email, phone: fullPhone },
+          saveStatus: {
+            popupActivity: activityResult?.ok ?? false,
+            lead: leadResult?.ok ?? false,
+            email: emailSent,
+            popupActivityId: activityResult?.id ?? null,
+            leadId: leadResult?.id ?? null,
+          },
         },
         { status: 200, headers: { "Access-Control-Allow-Origin": "*" } },
       );
@@ -646,25 +711,41 @@ export async function POST(req: NextRequest) {
 
     // Send email notification to admin
     const adminUserData = { ...userData, phone: fullPhone };
+    let activityResult: SaveResult | null = null;
+    let leadResult: SaveResult | null = null;
+    let emailSent = false;
     try {
       console.log("Attempting to save popup activity...");
-      await savePopupActivityToSupabase(adminUserData, carData);
+      activityResult = await savePopupActivityToSupabase(adminUserData, carData);
     } catch (activityError) {
       console.error("Activity tracker save failed:", activityError);
     }
     try {
       console.log("Attempting to save lead...");
-      await saveLeadToSupabase(adminUserData, carData);
+      leadResult = await saveLeadToSupabase(adminUserData, carData);
     } catch (leadError) {
       console.error("Lead save failed:", leadError);
     }
     try {
       console.log("Attempting to send admin email...");
       await sendAdminEmail(adminUserData, carData);
+      emailSent = true;
       console.log("Admin email processed.");
     } catch (emailError) {
       console.error("Email sending failed:", emailError);
       // We don't block the response even if email fails
+    }
+
+    if (activityResult && !activityResult.ok) {
+      console.error("[VERIFY] popup_activity_tracker save reported failure:", activityResult.error);
+    }
+    if (leadResult && !leadResult.ok) {
+      console.error("[VERIFY] leads save reported failure:", {
+        error: leadResult.error,
+        phone: adminUserData.phone,
+        source: carData?.source || null,
+        pageUrl: carData?.pageUrl || null,
+      });
     }
 
     return NextResponse.json(
@@ -672,6 +753,13 @@ export async function POST(req: NextRequest) {
         success: true,
         message: "Phone verified successfully!",
         user: { name, email, phone: fullPhone },
+        saveStatus: {
+          popupActivity: activityResult?.ok ?? false,
+          lead: leadResult?.ok ?? false,
+          email: emailSent,
+          popupActivityId: activityResult?.id ?? null,
+          leadId: leadResult?.id ?? null,
+        },
       },
       { status: 200, headers: { "Access-Control-Allow-Origin": "*" } },
     );

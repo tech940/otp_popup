@@ -1,4 +1,3 @@
-<script>
 (function () {
   var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app/';
   var VINS_STORAGE_KEY = 'otp_popup_unlocked_vins_v1';
@@ -1304,4 +1303,3 @@
   _vdpLateObserver.observe(document.body, { childList: true, subtree: true });
 
 })();
-</script>

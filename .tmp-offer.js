@@ -1,4 +1,3 @@
-<script>
 (function () {
   var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app';
   var ENQUIRY_KEYS = ["offer_dismissed_until","otp_verified_user","otp_enquiry_start"];
@@ -342,4 +341,3 @@
     window.addEventListener('load', initTimedOffer);
   }
 })();
-</script>
