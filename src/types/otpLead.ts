@@ -10,6 +10,12 @@ export interface OtpLeadRow {
   preferred_contact: string | null;
   comments: string | null;
   verified_at: string | null;
+  sms_consent_checked?: boolean;
+  sms_consent_text?: string | null;
+  sms_consent_at?: string | null;
+  terms_consent_checked?: boolean;
+  terms_consent_text?: string | null;
+  terms_consent_at?: string | null;
   vehicle_title: string | null;
   price: string | null;
   vin: string | null;

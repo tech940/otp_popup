@@ -9,6 +9,10 @@ import {
 } from "@/lib/leadVehicle";
 import { verifyOTP } from "@/lib/otpStore";
 import { normalizePhone } from "@/lib/phone";
+import {
+  SMS_CONSENT_DISCLOSURE,
+  TERMS_CONSENT_DISCLOSURE,
+} from "@/lib/smsConsent";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 interface UserData {
@@ -19,6 +23,12 @@ interface UserData {
   email: string;
   comments: string;
   verifiedAt: string;
+  smsConsentChecked?: boolean;
+  smsConsentText?: string;
+  smsConsentAt?: string | null;
+  termsConsentChecked?: boolean;
+  termsConsentText?: string;
+  termsConsentAt?: string | null;
   name?: string;
 }
 
@@ -44,6 +54,17 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
     );
     return;
   }
+
+  const smsConsentChecked = Boolean(userData.smsConsentChecked);
+  const smsConsentText = (userData.smsConsentText || SMS_CONSENT_DISCLOSURE).trim();
+  const smsConsentAt = smsConsentChecked
+    ? userData.smsConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+  const termsConsentChecked = Boolean(userData.termsConsentChecked);
+  const termsConsentText = (userData.termsConsentText || TERMS_CONSENT_DISCLOSURE).trim();
+  const termsConsentAt = termsConsentChecked
+    ? userData.termsConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
 
   const supabase = getSupabaseAdmin();
   if (!supabase) return;
@@ -107,6 +128,12 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
       `VIN: ${vin}`,
       `Stock: ${carData?.stock || (snap && (snap.stock || snap.stock_number)) || ""}`,
       `Preferred Contact: ${userData.preferredContact || "Any"}`,
+      `SMS Consent Checked: ${smsConsentChecked ? "Yes" : "No"}`,
+      `SMS Consent Timestamp: ${smsConsentAt || ""}`,
+      `SMS Consent Copy: ${smsConsentText}`,
+      `Terms Consent Checked: ${termsConsentChecked ? "Yes" : "No"}`,
+      `Terms Consent Timestamp: ${termsConsentAt || ""}`,
+      `Terms Consent Copy: ${termsConsentText}`,
       `Page URL: ${carData?.pageUrl || (snap && snap.embed_page_url) || ""}`,
       `Source: ${carData?.source || "VDP Unlock"}`,
       `User Comments: ${userData.comments || ""}`
@@ -138,6 +165,16 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
       page_url: carData?.pageUrl || null,
       embed_source: carData?.source || null,
       vehicle_snapshot: snap,
+      ...(table === "otp_leads"
+        ? {
+            sms_consent_checked: smsConsentChecked,
+            sms_consent_text: smsConsentText,
+            sms_consent_at: smsConsentAt,
+            terms_consent_checked: termsConsentChecked,
+            terms_consent_text: termsConsentText,
+            terms_consent_at: termsConsentAt,
+          }
+        : {}),
     };
   }
 
@@ -148,6 +185,71 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
   }
   const inserted = Array.isArray(data) ? data[0] : data;
   console.log("[SUPABASE] Lead inserted:", table, inserted?.id ?? "(no id)");
+}
+
+function inferPopupVariant(carData?: CarData): string {
+  const source = (carData?.source || "").toLowerCase();
+  return source.includes("500 off") ? "offer" : "instant_price";
+}
+
+async function savePopupActivityToSupabase(userData: UserData, carData?: CarData) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return;
+
+  const snap = carData?.vehicleSnapshot ?? null;
+  const smsConsentChecked = Boolean(userData.smsConsentChecked);
+  const smsConsentText = (userData.smsConsentText || SMS_CONSENT_DISCLOSURE).trim();
+  const smsConsentAt = smsConsentChecked
+    ? userData.smsConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+  const termsConsentChecked = Boolean(userData.termsConsentChecked);
+  const termsConsentText = (userData.termsConsentText || TERMS_CONSENT_DISCLOSURE).trim();
+  const termsConsentAt = termsConsentChecked
+    ? userData.termsConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+
+  const { error, data } = await supabase
+    .from("popup_activity_tracker")
+    .insert({
+      event_type: "lead_submitted",
+      popup_variant: inferPopupVariant(carData),
+      sms_consent_checked: smsConsentChecked,
+      sms_consent_text: smsConsentText,
+      sms_consent_at: smsConsentAt,
+      terms_consent_checked: termsConsentChecked,
+      terms_consent_text: termsConsentText,
+      terms_consent_at: termsConsentAt,
+      first_name: userData.firstName || null,
+      last_name: userData.lastName || null,
+      phone: userData.phone || null,
+      email: userData.email || null,
+      page_url: carData?.pageUrl || null,
+      embed_source: carData?.source || null,
+      vehicle_title: carData?.title || null,
+      vin: carData?.vin || null,
+      stock: carData?.stock || null,
+      metadata: {
+        preferredContact: userData.preferredContact || null,
+        comments: userData.comments || null,
+        verifiedAt: userData.verifiedAt || null,
+        vehicleSnapshot: snap,
+      },
+    })
+    .select("id");
+
+  if (error) {
+    console.error(
+      "[SUPABASE] popup_activity_tracker insert failed:",
+      error.message,
+      error.code,
+      error.details,
+      error.hint,
+    );
+    return;
+  }
+
+  const inserted = Array.isArray(data) ? data[0] : data;
+  console.log("[SUPABASE] Activity inserted:", inserted?.id ?? "(no id)");
 }
 
 async function sendAdminEmail(userData: UserData, carData?: CarData) {
@@ -210,6 +312,12 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   if (!model && carData?.title) model = carData.title;
 
   const detailLines = [
+    `SMS Consent Checked: ${userData.smsConsentChecked ? "Yes" : "No"}`,
+    `SMS Consent Timestamp: ${userData.smsConsentAt || ""}`,
+    `SMS Consent Copy: ${userData.smsConsentText || SMS_CONSENT_DISCLOSURE}`,
+    `Terms Consent Checked: ${userData.termsConsentChecked ? "Yes" : "No"}`,
+    `Terms Consent Timestamp: ${userData.termsConsentAt || ""}`,
+    `Terms Consent Copy: ${userData.termsConsentText || TERMS_CONSENT_DISCLOSURE}`,
     `Page URL: ${carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || ""}`,
     `User Comments: ${userData.comments || ""}`,
   ].join("\n");
@@ -222,6 +330,12 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
     ["Phone", escapeHtml(userData.phone)],
     ["Email", escapeHtml(userData.email || "")],
     ["Preferred contact", escapeHtml(userData.preferredContact || "")],
+    ["SMS consent", escapeHtml(userData.smsConsentChecked ? "Yes" : "No")],
+    ["Consent timestamp", escapeHtml(userData.smsConsentAt || "")],
+    ["Consent copy", escapeHtml(userData.smsConsentText || SMS_CONSENT_DISCLOSURE)],
+    ["Terms accepted", escapeHtml(userData.termsConsentChecked ? "Yes" : "No")],
+    ["Terms timestamp", escapeHtml(userData.termsConsentAt || "")],
+    ["Terms copy", escapeHtml(userData.termsConsentText || TERMS_CONSENT_DISCLOSURE)],
     ["Comments", escapeHtml(userData.comments || "")],
     ["Page URL", escapeHtml(carData?.pageUrl || pickSnap(snap, ["embed_page_url"]) || "")],
     ["Year", escapeHtml(year)],
@@ -357,6 +471,13 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
       );
 
+    if (!userData.termsConsentChecked) {
+      return NextResponse.json(
+        { error: "Terms of use agreement is required." },
+        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
+    }
+
     const name = `${firstName} ${lastName}`.trim();
 
     const { digits: normalized, e164: fullPhone } = normalizePhone(phone);
@@ -383,9 +504,18 @@ export async function POST(req: NextRequest) {
       console.log(`[LOCAL VERIFY] Verified ${fullPhone}`);
 
       // Send email notification to admin
+      const adminUserData = { ...userData, phone: fullPhone };
       try {
-        const adminUserData = { ...userData, phone: fullPhone };
+        await savePopupActivityToSupabase(adminUserData, carData);
+      } catch (activityError) {
+        console.error("Activity tracker save failed (Local Verify):", activityError);
+      }
+      try {
         await saveLeadToSupabase(adminUserData, carData);
+      } catch (leadError) {
+        console.error("Lead save failed (Local Verify):", leadError);
+      }
+      try {
         await sendAdminEmail(adminUserData, carData);
       } catch (emailError) {
         console.error("Email sending failed (Local Verify):", emailError);
@@ -415,10 +545,21 @@ export async function POST(req: NextRequest) {
     console.log("Verified user:", { name, email, phone: fullPhone });
 
     // Send email notification to admin
+    const adminUserData = { ...userData, phone: fullPhone };
     try {
-      console.log("Attempting to save lead and send admin email...");
-      const adminUserData = { ...userData, phone: fullPhone };
+      console.log("Attempting to save popup activity...");
+      await savePopupActivityToSupabase(adminUserData, carData);
+    } catch (activityError) {
+      console.error("Activity tracker save failed:", activityError);
+    }
+    try {
+      console.log("Attempting to save lead...");
       await saveLeadToSupabase(adminUserData, carData);
+    } catch (leadError) {
+      console.error("Lead save failed:", leadError);
+    }
+    try {
+      console.log("Attempting to send admin email...");
       await sendAdminEmail(adminUserData, carData);
       console.log("Admin email processed.");
     } catch (emailError) {

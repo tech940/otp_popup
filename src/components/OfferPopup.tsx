@@ -1,5 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
+import {
+  SMS_CONSENT_DISCLOSURE,
+  TERMS_CONSENT_DISCLOSURE,
+  TERMS_OF_USE_URL,
+} from "@/lib/smsConsent";
 
 interface CarData {
   title: string;
@@ -33,6 +38,8 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
+  const [termsConsentChecked, setTermsConsentChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +92,12 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
     setLoading(true);
     setError("");
 
+    if (!termsConsentChecked) {
+      setLoading(false);
+      setError("Please agree to the terms of use to continue.");
+      return;
+    }
+
     try {
       const payload = {
         user: {
@@ -95,6 +108,12 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
           preferredContact: "Email",
           comments: "Submitted via $500 OFF Offer Popup",
           verifiedAt: new Date().toISOString(),
+          smsConsentChecked,
+          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentAt: smsConsentChecked ? new Date().toISOString() : null,
+          termsConsentChecked,
+          termsConsentText: TERMS_CONSENT_DISCLOSURE,
+          termsConsentAt: termsConsentChecked ? new Date().toISOString() : null,
         },
         car: {
           ...carData,
@@ -123,8 +142,31 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
   if (submitted) {
     return (
-      <div className="offer-overlay">
-        <div className="offer-popup" style={{ maxWidth: 600, textAlign: "center", padding: 60 }}>
+      <div
+        className="offer-overlay"
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 10,
+          zIndex: 9999,
+          fontFamily: '"Metropolis", "Segoe UI", system-ui, sans-serif',
+        }}
+      >
+        <div
+          className="offer-popup"
+          style={{
+            width: "100%",
+            maxWidth: 600,
+            background: "#fff",
+            borderRadius: 16,
+            overflow: "hidden",
+            textAlign: "center",
+            padding: 60,
+          }}
+        >
           <div style={{ 
             width: 100, height: 100, background: "#ecfdf5", borderRadius: "50%", 
             display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 30px",
@@ -144,14 +186,35 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
             </div>
           </button>
         </div>
-        <style jsx>{styles}</style>
       </div>
     );
   }
 
   return (
-    <div className="offer-overlay">
-      <div className="offer-popup">
+    <div
+      className="offer-overlay"
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 10,
+        zIndex: 9999,
+        fontFamily: '"Metropolis", "Segoe UI", system-ui, sans-serif',
+      }}
+    >
+      <div
+        className="offer-popup"
+        style={{
+          width: "100%",
+          maxWidth: 580,
+          background: "#fff",
+          borderRadius: 16,
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
         
         {/* CLOSE */}
         <button className="offer-close" onClick={onClose}>✕</button>
@@ -244,6 +307,42 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
               </div>
             )}
 
+            <div className="sms-consent-group offer-consent-group">
+              <label className="sms-consent-row">
+                <input
+                  className="sms-consent-checkbox"
+                  type="checkbox"
+                  checked={smsConsentChecked}
+                  onChange={(e) => setSmsConsentChecked(e.target.checked)}
+                />
+                <span className="sms-consent-copy">{SMS_CONSENT_DISCLOSURE}</span>
+              </label>
+              <label className={`sms-consent-row sms-consent-row-secondary${error === "Please agree to the terms of use to continue." ? " is-invalid" : ""}`}>
+                <input
+                  className="sms-consent-checkbox"
+                  type="checkbox"
+                  checked={termsConsentChecked}
+                  onChange={(e) => {
+                    setTermsConsentChecked(e.target.checked);
+                    if (e.target.checked && error === "Please agree to the terms of use to continue.") {
+                      setError("");
+                    }
+                  }}
+                />
+                <span className="sms-consent-copy">
+                  You also agree to our{" "}
+                  <a
+                    href={TERMS_OF_USE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    terms of use
+                  </a>
+                  .
+                </span>
+              </label>
+            </div>
+
             {/* CTA */}
             <button className="offer-btn" type="submit" disabled={loading}>
 
@@ -276,7 +375,7 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
           {/* FOOTER */}
           <div className="offer-footer">
-            <a href="https://www.amfordashtabula.com/terms-of-use/" target="_blank" rel="noopener noreferrer">Terms & Conditions</a>
+            <a href={TERMS_OF_USE_URL} target="_blank" rel="noopener noreferrer">Terms & Conditions</a>
             <p>🔒 We respect your privacy</p>
             <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#d00000", fontWeight: 700, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
               No, Thank You
@@ -286,341 +385,6 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
         </div>
 
       </div>
-
-      <style jsx>{styles}</style>
     </div>
   );
 }
-
-const styles = String.raw`
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  .offer-overlay {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-    padding-top: calc(10px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    padding-left: calc(10px + env(safe-area-inset-left, 0px));
-    padding-right: calc(10px + env(safe-area-inset-right, 0px));
-    background: transparent;
-    z-index: 9999;
-    font-family: Inter, sans-serif;
-  }
-
-  .offer-popup {
-    width: 100%;
-    max-width: 580px;
-    max-height: 98vh;
-    overflow: hidden;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: none;
-    position: relative;
-  }
-
-  .offer-close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(8px);
-    color: white;
-    font-size: 14px;
-    cursor: pointer;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .offer-close:hover {
-    background: rgba(255, 255, 255, 0.25);
-  }
-
-  .offer-header {
-    position: relative;
-    padding: 24px 30px 18px;
-    overflow: hidden;
-    background: radial-gradient(circle at top right, #ff6b00 0%, transparent 25%),
-      linear-gradient(135deg, #ff0000 0%, #8b0000 100%);
-  }
-
-  .offer-header::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-    background-size: 10px 10px;
-  }
-
-  .offer-logo {
-    width: 100%;
-    max-width: 130px;
-    background: #fff;
-    border-radius: 8px;
-    padding: 6px 12px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-    margin: 0 auto 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-  }
-
-  .offer-logo img {
-    width: 100% !important;
-    height: auto;
-  }
-
-  .offer-main {
-    text-align: center;
-    position: relative;
-    z-index: 2;
-  }
-
-  .offer-main h1 {
-    margin-top: 2px;
-    line-height: 1;
-  }
-
-  .amount {
-    font-size: 54px;
-    font-weight: 900;
-    color: white;
-    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-    font-style: italic;
-  }
-
-  .off {
-    font-size: 26px;
-    color: #ffd633;
-    font-weight: 900;
-    font-style: italic;
-    margin-left: 4px;
-    text-shadow: 0 0 8px rgba(255, 214, 51, 0.6);
-  }
-
-  .offer-main h2 {
-    margin-top: 3px;
-    color: white;
-    font-size: 16px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    line-height: 1.1;
-  }
-
-  .stars {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    margin-top: 8px;
-    color: #ffd633;
-    font-size: 11px;
-  }
-
-  .stars span {
-    width: 40px;
-    height: 1px;
-    background: #ffd633;
-  }
-
-  .offer-body {
-    padding: 24px 30px 18px;
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .field label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 9px;
-    font-weight: 800;
-    color: #444;
-  }
-
-  .field input {
-    width: 100%;
-    height: 38px;
-    border-radius: 8px;
-    border: 2px solid #e9e9e9;
-    padding: 0 10px;
-    font-size: 16px;
-    background: #fafafa;
-  }
-
-  .field input:focus {
-    outline: none;
-    border-color: #ff0000;
-    box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.1);
-    background: white;
-  }
-
-  .offer-btn {
-    width: 100%;
-    margin-top: 16px;
-    border: none;
-    cursor: pointer;
-    border-radius: 10px;
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: linear-gradient(135deg, #ff0000, #ff6b00);
-    color: white;
-    overflow: hidden;
-    position: relative;
-    box-shadow: 0 6px 15px rgba(255, 0, 0, 0.3);
-  }
-
-  .offer-btn:hover {
-  }
-
-  .offer-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  .btn-content {
-    flex: 1;
-    text-align: center;
-  }
-
-  .btn-content h3 {
-    font-size: 16px;
-    font-weight: 900;
-  }
-
-  .arrow {
-    font-size: 14px;
-  }
-
-  .trust-section {
-    margin-top: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    font-size: 11px;
-    color: #555;
-    font-weight: 600;
-  }
-
-  .trust-box {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .trust-icon {
-    font-size: 12px;
-  }
-
-  .trust-divider {
-    color: #ddd;
-    font-weight: 300;
-  }
-
-  .offer-footer {
-    margin-top: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 10px;
-    border-top: 1px solid #f0f0f0;
-    padding-top: 10px;
-  }
-
-  .offer-footer a {
-    color: #d00000;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .offer-footer p {
-    color: #666;
-  }
-
-  @media (max-width: 640px) {
-    .offer-popup {
-      max-width: 95%;
-      border-radius: 12px;
-    }
-
-    .offer-header {
-      padding: 16px 20px 12px;
-    }
-
-    .amount {
-      font-size: 36px;
-    }
-
-    .off {
-      font-size: 18px;
-    }
-
-    .offer-main h2 {
-      font-size: 12px;
-    }
-
-    .stars {
-      margin-top: 4px;
-    }
-
-    .offer-body {
-      padding: 16px 20px 12px;
-    }
-
-    .form-grid {
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-    .field input {
-      height: 32px;
-      font-size: 16px;
-    }
-
-    .offer-btn {
-      margin-top: 12px;
-      padding: 8px 12px;
-    }
-
-    .btn-content h3 {
-      font-size: 13px;
-    }
-
-    .trust-section {
-      font-size: 9px;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .offer-footer {
-      flex-direction: row;
-      gap: 4px;
-      font-size: 8px;
-      margin-top: 12px;
-  }
-`;
-
-// Made with Bob
