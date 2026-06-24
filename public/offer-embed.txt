@@ -51,11 +51,82 @@
     return 'Other';
   }
 
+  function imgEffectiveSrc(img) {
+    try { if (img.currentSrc) return String(img.currentSrc).trim(); } catch (e) {}
+    return (img.getAttribute('src') || img.getAttribute('data-src') || '').trim();
+  }
+
+  function splitVdpHeading(heading) {
+    var text = (heading || '').replace(/\s+/g, ' ').trim();
+    var out = { year: '', make: '', model: '', trim: '' };
+    var m = text.match(/(?:Certified Pre-Owned\s+)?(\d{4})\s+([A-Za-z]+)\s+(.+)/i);
+    if (!m) return out;
+    out.year = m[1] || '';
+    out.make = m[2] || '';
+    var tail = (m[3] || '').trim();
+    if (!tail) return out;
+    var parts = tail.split(' ');
+    if (parts.length > 1) {
+      out.trim = parts[parts.length - 1];
+      out.model = parts.slice(0, -1).join(' ');
+    } else {
+      out.model = tail;
+    }
+    return out;
+  }
+
+  function getVdpPriceValue() {
+    var ipLabel = document.querySelector('.price-block .price-label');
+    if (ipLabel) {
+      var ipBlock = ipLabel.closest('.price-block');
+      if (ipBlock) {
+        var ipPriceEl = ipBlock.querySelector('.price');
+        if (ipPriceEl) {
+          var ipPrice = (ipPriceEl.textContent || '').replace(/[^0-9.]/g, '');
+          if (ipPrice) return ipPrice;
+        }
+      }
+    }
+
+    var priceNodes = document.querySelectorAll(
+      '.vdp-title__price, .info__price, .price, [data-testid="vehicle-price"], [data-testid="msrp"], .payment-block .price'
+    );
+    for (var i = 0; i < priceNodes.length; i++) {
+      var value = (priceNodes[i].textContent || '').replace(/[^0-9.]/g, '');
+      if (value) return value;
+    }
+    return '';
+  }
+
+  function getVdpVehicleHeading() {
+    var titleNode = document.querySelector('h1[data-testid="vehicle-title"]');
+    if (titleNode) return (titleNode.textContent || '').replace(/\s+/g, ' ').trim();
+    var modalHeading = document.querySelector('.di-advanced-pricing-modal h2');
+    if (modalHeading) return (modalHeading.textContent || '').replace(/\s+/g, ' ').trim();
+    return (document.title || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getVdpHeroImage() {
+    var imgEl = document.querySelector(
+      'img[data-testid^="vehicle-image"], .vdp-gallery__preview img, .vehicle-images img, .hero-image img'
+    );
+    if (!imgEl) return '';
+    return imgEffectiveSrc(imgEl);
+  }
+
   function getVdpVehicleData() {
     var vin = '', stock = '', price = '', vehicle = '', heroImg = '';
 
     var vinInput = document.getElementById('ap-modal-vin');
     if (vinInput && vinInput.value) vin = vinInput.value.trim().toUpperCase();
+
+    if (!vin) {
+      var vinNode = document.querySelector('#vin[data-testid="vin-number"], span[data-testid="vin-number"]');
+      if (vinNode) vin = (vinNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    }
+
+    var stockNode = document.querySelector('#stock[data-testid="stock-number"], span[data-testid="stock-number"]');
+    if (stockNode) stock = (stockNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
 
     if (!vin) {
       var vinSpan = document.querySelector('.di-advanced-pricing-modal .vin');
@@ -65,30 +136,31 @@
       }
     }
 
+    if (!stock) {
+      var stockWrap = document.querySelector('.vdp-title__vin-stock, .stock');
+      if (stockWrap) {
+        var stockText = (stockWrap.textContent || '').match(/Stock[:\s]+([A-Z0-9-]+)/i);
+        if (stockText) stock = stockText[1].toUpperCase();
+      }
+    }
+
     if (!vin) {
       var urlMatch = window.location.pathname.match(/([A-HJ-NPR-Z0-9]{17})/i);
       if (urlMatch) vin = urlMatch[1].toUpperCase();
     }
 
-    var ipBlock = document.querySelector('.price-block .price-label');
-    if (ipBlock) {
-      ipBlock = ipBlock.closest('.price-block');
-      if (ipBlock) {
-        var priceEl = ipBlock.querySelector('.price');
-        if (priceEl) price = priceEl.textContent.replace(/[^0-9.]/g, '');
-      }
-    }
+    price = getVdpPriceValue();
 
-    vehicle = document.title;
-    var h2 = document.querySelector('.di-advanced-pricing-modal h2');
-    if (h2) vehicle = h2.textContent;
+    vehicle = getVdpVehicleHeading();
+    var parsedVehicle = splitVdpHeading(vehicle);
 
-    var imgEl = document.querySelector('.vehicle-images img, .hero-image img, [data-testid="vehicle-image"]');
-    if (imgEl) heroImg = imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '';
+    heroImg = getVdpHeroImage();
 
     var vehicleData = {
       vin: vin, stock: stock, price: price,
-      vehicle_heading: vehicle, embed_page_url: window.location.href,
+      year: parsedVehicle.year, make: parsedVehicle.make,
+      model: parsedVehicle.model, trim: parsedVehicle.trim,
+      vehicle_heading: vehicle, listing_title: vehicle, embed_page_url: window.location.href,
       photoUrl: heroImg, imageUrl: heroImg, heroImage: heroImg
     };
 

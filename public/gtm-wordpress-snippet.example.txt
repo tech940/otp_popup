@@ -90,6 +90,24 @@
     } catch (e) {}
   }
 
+  function getMainPopupPageType() {
+    var path = (window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/inventory/') !== -1) return 'VDP';
+    if (path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1) return 'SRP';
+    return 'Other';
+  }
+
+  function getMainPopupSourceLabel(pageType) {
+    if (pageType === 'VDP') return 'VDP Unlock';
+    if (pageType === 'SRP') return 'SRP Unlock';
+    return 'Instant Price Unlock';
+  }
+
+  function imgEffectiveSrc(img) {
+    try { if (img.currentSrc) return String(img.currentSrc).trim(); } catch (e) {}
+    return (img.getAttribute('src') || img.getAttribute('data-src') || '').trim();
+  }
+
   function findInstantPriceBlock(wrap) {
     if (!wrap) return null;
     var blocks = wrap.querySelectorAll('.price-block');
@@ -262,6 +280,8 @@
     try { window.__otpScrollY = window.scrollY || window.pageYOffset; } catch (e) {}
     removePopupOverlay();
     var pageUrl = window.location.href;
+    var pageType = getMainPopupPageType();
+    var sourceLabel = getMainPopupSourceLabel(pageType);
     var ctx = parseVehicleFromClick(root || document.body);
     try { window.__otpLastUnlockCtx = { vin: ctx.vin || '', stock: ctx.stock || '' }; } catch (e) {}
 
@@ -282,7 +302,7 @@
       '&price=' + encodeURIComponent(ctx.price) +
       '&vehicle=' + encodeURIComponent(ctx.vehicle) +
       '&page_url=' + encodeURIComponent(pageUrl) +
-      '&source=SRP+Unlock' +
+      '&source=' + encodeURIComponent(sourceLabel) +
       '&_=' + Date.now();
     iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
 
@@ -294,7 +314,7 @@
           : { vin: ctx.vin, stock: ctx.stock, price: ctx.price, vehicle_heading: ctx.vehicle, embed_page_url: pageUrl };
         if (heroImg) snap = Object.assign({}, snap, { photoUrl: heroImg, imageUrl: heroImg, heroImage: heroImg });
         iframe.contentWindow.postMessage({
-          type: 'OTP_EMBED_CONTEXT', pageUrl: pageUrl, source: 'SRP Unlock',
+          type: 'OTP_EMBED_CONTEXT', pageUrl: pageUrl, source: sourceLabel,
           vin: ctx.vin, stock: ctx.stock, price: ctx.price, vehicle: ctx.vehicle, vehicleData: snap
         }, '*');
       } catch (err) {}
@@ -594,6 +614,12 @@
   var GLOBAL_VERIFY_KEY    = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
 
+  function getMainPopupSourceLabel(pageType) {
+    if (pageType === 'VDP') return 'VDP Unlock';
+    if (pageType === 'SRP') return 'SRP Unlock';
+    return 'Instant Price Unlock';
+  }
+
   /* ─────────────────────────────────────────────
      GUARD: only run on VDP pages
      Dealer Inspire VDPs have #price-box in the DOM.
@@ -684,20 +710,94 @@
   function getVdpContext() {
     /* 1. Hidden input injected by the advanced-pricing modal */
     var vinInput = document.getElementById('ap-modal-vin');
-    if (vinInput && vinInput.value) return { vin: vinInput.value.trim().toUpperCase(), stock: '' };
+    var vin = '', stock = '';
+    if (vinInput && vinInput.value) vin = vinInput.value.trim().toUpperCase();
+
+    if (!vin) {
+      var vinNode = document.querySelector('#vin[data-testid="vin-number"], span[data-testid="vin-number"]');
+      if (vinNode) vin = (vinNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    }
+
+    var stockNode = document.querySelector('#stock[data-testid="stock-number"], span[data-testid="stock-number"]');
+    if (stockNode) stock = (stockNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
 
     /* 2. <span class="vin"> inside the modal */
     var vinSpan = document.querySelector('.di-advanced-pricing-modal .vin');
-    if (vinSpan) {
+    if (!vin && vinSpan) {
       var m = vinSpan.textContent.match(/VIN[:\s]+([A-HJ-NPR-Z0-9]{17})/i);
-      if (m) return { vin: m[1].toUpperCase(), stock: '' };
+      if (m) vin = m[1].toUpperCase();
+    }
+
+    if (!stock) {
+      var stockWrap = document.querySelector('.vdp-title__vin-stock, .stock');
+      if (stockWrap) {
+        var stockText = (stockWrap.textContent || '').match(/Stock[:\s]+([A-Z0-9-]+)/i);
+        if (stockText) stock = stockText[1].toUpperCase();
+      }
     }
 
     /* 3. URL – many DI VDPs embed the VIN in the slug */
-    var urlMatch = window.location.pathname.match(/([A-HJ-NPR-Z0-9]{17})/i);
-    if (urlMatch) return { vin: urlMatch[1].toUpperCase(), stock: '' };
+    if (!vin) {
+      var urlMatch = window.location.pathname.match(/([A-HJ-NPR-Z0-9]{17})/i);
+      if (urlMatch) vin = urlMatch[1].toUpperCase();
+    }
 
-    return { vin: '', stock: '' };
+    return { vin: vin, stock: stock };
+  }
+
+  function getVdpVehicleHeading() {
+    var titleNode = document.querySelector('h1[data-testid="vehicle-title"]');
+    if (titleNode) return (titleNode.textContent || '').replace(/\s+/g, ' ').trim();
+    var modalHeading = document.querySelector('.di-advanced-pricing-modal h2');
+    if (modalHeading) return (modalHeading.textContent || '').replace(/\s+/g, ' ').trim();
+    return (document.title || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function splitVdpHeading(heading) {
+    var text = (heading || '').replace(/\s+/g, ' ').trim();
+    var out = { year: '', make: '', model: '', trim: '' };
+    var m = text.match(/(?:Certified Pre-Owned\s+)?(\d{4})\s+([A-Za-z]+)\s+(.+)/i);
+    if (!m) return out;
+    out.year = m[1] || '';
+    out.make = m[2] || '';
+    var tail = (m[3] || '').trim();
+    if (!tail) return out;
+    var parts = tail.split(' ');
+    if (parts.length > 1) {
+      out.trim = parts[parts.length - 1];
+      out.model = parts.slice(0, -1).join(' ');
+    } else {
+      out.model = tail;
+    }
+    return out;
+  }
+
+  function getVdpPriceValue() {
+    var ipBlock = findInstantPriceBlock();
+    if (ipBlock) {
+      var priceEl = ipBlock.querySelector('.price');
+      if (priceEl) {
+        var ipPrice = (priceEl.textContent || '').replace(/[^0-9.]/g, '');
+        if (ipPrice) return ipPrice;
+      }
+    }
+
+    var priceNodes = document.querySelectorAll(
+      '.vdp-title__price, .info__price, .price, [data-testid="vehicle-price"], [data-testid="msrp"], .payment-block .price'
+    );
+    for (var i = 0; i < priceNodes.length; i++) {
+      var value = (priceNodes[i].textContent || '').replace(/[^0-9.]/g, '');
+      if (value) return value;
+    }
+    return '';
+  }
+
+  function getVdpHeroImage() {
+    var imgEl = document.querySelector(
+      'img[data-testid^="vehicle-image"], .vdp-gallery__preview img, .vehicle-images img, .hero-image img'
+    );
+    if (!imgEl) return '';
+    return imgEffectiveSrc(imgEl);
   }
 
   function unlockKey(ctx) {
@@ -784,13 +884,10 @@
     try { window.__otpScrollY = window.scrollY || window.pageYOffset; } catch (e) {}
     removePopupOverlay();
     var ctx    = getVdpContext();
-    var price  = '';
-    var ipBlock = findInstantPriceBlock();
-    if (ipBlock) {
-      var priceEl = ipBlock.querySelector('.price');
-      if (priceEl) price = priceEl.textContent.replace(/[^0-9.]/g, '');
-    }
-    var vehicle = (document.querySelector('.di-advanced-pricing-modal h2') || {}).textContent || document.title;
+    var price  = getVdpPriceValue();
+    var vehicle = getVdpVehicleHeading();
+    var parsedVehicle = splitVdpHeading(vehicle);
+    var sourceLabel = getMainPopupSourceLabel('VDP');
     try { window.__otpLastUnlockCtx = { vin: ctx.vin, stock: ctx.stock }; } catch (e) {}
 
     var overlay = document.createElement('div');
@@ -805,9 +902,7 @@
     box.style.cssText = 'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
 
     /* Hero image for the popup */
-    var heroImg = '';
-    var imgEl = document.querySelector('.vehicle-images img, .hero-image img, [data-testid="vehicle-image"]');
-    if (imgEl) heroImg = imgEl.getAttribute('src') || imgEl.getAttribute('data-src') || '';
+    var heroImg = getVdpHeroImage();
 
     var iframe = document.createElement('iframe');
     iframe.src = POPUP_ORIGIN +
@@ -816,7 +911,7 @@
       '&price='      + encodeURIComponent(price) +
       '&vehicle='    + encodeURIComponent(vehicle) +
       '&page_url='   + encodeURIComponent(window.location.href) +
-      '&source=VDP+Unlock' +
+      '&source='     + encodeURIComponent(sourceLabel) +
       '&_='          + Date.now();
     iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;';
 
@@ -824,14 +919,17 @@
       try {
         iframe.contentWindow.postMessage({
           type:        'OTP_EMBED_CONTEXT',
-          source:      'VDP Unlock',
+          source:      sourceLabel,
           pageUrl:     window.location.href,
           vin:         ctx.vin,
           stock:       ctx.stock,
           price:       price,
           vehicle:     vehicle,
           vehicleData: { vin: ctx.vin, stock: ctx.stock, price: price,
-                         vehicle_heading: vehicle, embed_page_url: window.location.href,
+                         year: parsedVehicle.year, make: parsedVehicle.make,
+                         model: parsedVehicle.model, trim: parsedVehicle.trim,
+                         vehicle_heading: vehicle, listing_title: vehicle,
+                         embed_page_url: window.location.href,
                          photoUrl: heroImg, imageUrl: heroImg, heroImage: heroImg }
         }, '*');
       } catch (err) {}
