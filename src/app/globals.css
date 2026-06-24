@@ -215,6 +215,10 @@ body::-webkit-scrollbar {
   margin-top: 16px;
 }
 
+.sms-consent-group p {
+  margin: 0;
+}
+
 .sms-consent-row {
   display: flex;
   align-items: flex-start;

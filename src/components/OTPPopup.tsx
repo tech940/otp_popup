@@ -239,8 +239,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   const [resendTimer, setResendTimer] = useState(0);
   const [devMode, setDevMode] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
-  const [termsConsentChecked, setTermsConsentChecked] = useState(false);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -331,7 +329,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     const errors: string[] = [];
     if (!firstName.trim()) errors.push("firstName");
     if (phone.length < 12) errors.push("phone");
-    if (!termsConsentChecked) errors.push("termsConsent");
 
     // Validation removed for testing as requested
 
@@ -341,9 +338,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
     if (errors.length > 0) {
       setInvalidFields(errors);
-      if (errors.includes("termsConsent")) {
-        setError("Please agree to the terms of use to continue.");
-      }
       // Reset after animation finishes so it can re-trigger
       setTimeout(() => setInvalidFields([]), 410);
       return;
@@ -366,12 +360,12 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           preferredContact,
           comments,
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked,
+          smsConsentChecked: false,
           smsConsentText: SMS_CONSENT_DISCLOSURE,
-          smsConsentAt: smsConsentChecked ? new Date().toISOString() : null,
-          termsConsentChecked,
+          smsConsentAt: null,
+          termsConsentChecked: false,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: termsConsentChecked ? new Date().toISOString() : null,
+          termsConsentAt: null,
         },
         car: carData,
         otp: "BYPASS" 
@@ -431,12 +425,12 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           preferredContact,
           comments,
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked,
+          smsConsentChecked: false,
           smsConsentText: SMS_CONSENT_DISCLOSURE,
-          smsConsentAt: smsConsentChecked ? new Date().toISOString() : null,
-          termsConsentChecked,
+          smsConsentAt: null,
+          termsConsentChecked: false,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: termsConsentChecked ? new Date().toISOString() : null,
+          termsConsentAt: null,
         },
         car: carData,
         otp: otpString // Keep OTP for verification logic
@@ -656,50 +650,25 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
               )}
 
               <div className="sms-consent-group">
-                <label className="sms-consent-row">
-                  <input
-                    className="sms-consent-checkbox"
-                    type="checkbox"
-                    checked={smsConsentChecked}
-                    onChange={(e) => setSmsConsentChecked(e.target.checked)}
-                  />
-                  <span className="sms-consent-copy">{SMS_CONSENT_DISCLOSURE}</span>
-                </label>
-                <label className={`sms-consent-row sms-consent-row-secondary${invalidFields.includes("termsConsent") ? " is-invalid" : ""}`}>
-                  <input
-                    className="sms-consent-checkbox"
-                    type="checkbox"
-                    checked={termsConsentChecked}
-                    onChange={(e) => {
-                      setTermsConsentChecked(e.target.checked);
-                      if (invalidFields.includes("termsConsent")) {
-                        setInvalidFields(invalidFields.filter((f) => f !== "termsConsent"));
-                      }
-                      if (e.target.checked && error === "Please agree to the terms of use to continue.") {
-                        setError("");
-                      }
-                    }}
-                  />
-                  <span className="sms-consent-copy">
-                    You also agree to our{" "}
-                    <a
-                      href={TERMS_OF_USE_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      terms of use
-                    </a>
-                    {" "}and{" "}
-                    <a
-                      href={PRIVACY_POLICY_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      privacy policy
-                    </a>
-                    .
-                  </span>
-                </label>
+                <p className="sms-consent-copy">
+                  {SMS_CONSENT_DISCLOSURE} You also agree to our{" "}
+                  <a
+                    href={TERMS_OF_USE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    terms of use
+                  </a>
+                  {" "}and{" "}
+                  <a
+                    href={PRIVACY_POLICY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    privacy policy
+                  </a>
+                  .
+                </p>
               </div>
 
               <button

@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import {
   PRIVACY_POLICY_URL,
-  SMS_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
 } from "@/lib/smsConsent";
@@ -39,8 +38,6 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
-  const [termsConsentChecked, setTermsConsentChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -93,12 +90,6 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
     setLoading(true);
     setError("");
 
-    if (!termsConsentChecked) {
-      setLoading(false);
-      setError("Please agree to the terms of use to continue.");
-      return;
-    }
-
     try {
       const payload = {
         user: {
@@ -109,12 +100,12 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
           preferredContact: "Email",
           comments: "Submitted via $500 OFF Offer Popup",
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
-          smsConsentAt: smsConsentChecked ? new Date().toISOString() : null,
-          termsConsentChecked,
+          smsConsentChecked: false,
+          smsConsentText: null,
+          smsConsentAt: null,
+          termsConsentChecked: false,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: termsConsentChecked ? new Date().toISOString() : null,
+          termsConsentAt: null,
         },
         car: {
           ...carData,
@@ -309,47 +300,25 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
             )}
 
             <div className="sms-consent-group offer-consent-group">
-              <label className="sms-consent-row">
-                <input
-                  className="sms-consent-checkbox"
-                  type="checkbox"
-                  checked={smsConsentChecked}
-                  onChange={(e) => setSmsConsentChecked(e.target.checked)}
-                />
-                <span className="sms-consent-copy">{SMS_CONSENT_DISCLOSURE}</span>
-              </label>
-              <label className={`sms-consent-row sms-consent-row-secondary${error === "Please agree to the terms of use to continue." ? " is-invalid" : ""}`}>
-                <input
-                  className="sms-consent-checkbox"
-                  type="checkbox"
-                  checked={termsConsentChecked}
-                  onChange={(e) => {
-                    setTermsConsentChecked(e.target.checked);
-                    if (e.target.checked && error === "Please agree to the terms of use to continue.") {
-                      setError("");
-                    }
-                  }}
-                />
-                <span className="sms-consent-copy">
-                  You also agree to our{" "}
-                  <a
-                    href={TERMS_OF_USE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    terms of use
-                  </a>
-                  {" "}and{" "}
-                  <a
-                    href={PRIVACY_POLICY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    privacy policy
-                  </a>
-                  .
-                </span>
-              </label>
+              <p className="sms-consent-copy">
+                By submitting, you agree to our{" "}
+                <a
+                  href={TERMS_OF_USE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  terms of use
+                </a>
+                {" "}and{" "}
+                <a
+                  href={PRIVACY_POLICY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  privacy policy
+                </a>
+                .
+              </p>
             </div>
 
             {/* CTA */}

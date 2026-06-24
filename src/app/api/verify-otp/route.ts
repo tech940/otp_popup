@@ -578,13 +578,6 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
       );
 
-    if (!userData.termsConsentChecked) {
-      return NextResponse.json(
-        { error: "Terms of use agreement is required." },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
-    }
-
     const name = `${firstName} ${lastName}`.trim();
 
     const { digits: normalized, e164: fullPhone } = normalizePhone(phone);
