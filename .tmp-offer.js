@@ -122,6 +122,96 @@
     return out;
   }
 
+  function normalizeText(value) {
+    return String(value || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+  }
+
+  function getMetaContent(selector) {
+    var node = document.querySelector(selector);
+    if (!node) return '';
+    return normalizeText(node.getAttribute('content') || '');
+  }
+
+  function getVdpActionNode() {
+    return document.querySelector('.vdp-heart[data-vin], .my-profile-save-item[data-vin], [data-vin][data-title], [data-retail-vin][data-title]');
+  }
+
+  function getVdpFallbackVin() {
+    var actionNode = getVdpActionNode();
+    if (actionNode) {
+      var actionVin = actionNode.getAttribute('data-vin') || actionNode.getAttribute('data-retail-vin') || '';
+      actionVin = normalizeText(actionVin).toUpperCase();
+      if (actionVin) return actionVin;
+    }
+
+    var imgs = document.querySelectorAll('img[src], img[data-src]');
+    var i = 0;
+    for (i = 0; i < imgs.length; i++) {
+      var src = imgEffectiveSrc(imgs[i]);
+      if (src) {
+        var imageVin = extractVinFromText(src);
+        if (imageVin) return imageVin;
+      }
+    }
+    return '';
+  }
+
+  function getVdpFallbackStock() {
+    var stockNode = document.querySelector('.vdp-title__vin-stock .stock, #shareModal .stock, .vehicle-info .stock');
+    if (stockNode) {
+      var stock = extractStockFromText(stockNode.textContent || '');
+      if (stock) return stock;
+    }
+    return '';
+  }
+
+  function getVdpFallbackHeading() {
+    var titleNode = document.querySelector('h1[data-testid="vehicle-title"], .vdp-title__vehicle-info h1, .vdp-title h1');
+    if (titleNode) {
+      var titleText = normalizeText(titleNode.textContent || '');
+      if (titleText) return titleText;
+    }
+
+    var actionNode = getVdpActionNode();
+    if (actionNode) {
+      var attrTitle = normalizeText(actionNode.getAttribute('data-title') || '');
+      if (attrTitle) return attrTitle;
+    }
+
+    var ogTitle = getMetaContent('meta[property="og:title"]');
+    if (ogTitle) return ogTitle;
+
+    var twitterTitle = getMetaContent('meta[name="twitter:title"]');
+    if (twitterTitle) return twitterTitle;
+
+    return normalizeText(document.title || '');
+  }
+
+  function getVdpFallbackPrice() {
+    var actionNode = getVdpActionNode();
+    if (actionNode) {
+      var amount = extractNumberText(actionNode.getAttribute('data-amount') || '');
+      if (amount) return amount;
+    }
+    return '';
+  }
+
+  function getVdpFallbackHeroImage() {
+    var actionNode = getVdpActionNode();
+    if (actionNode) {
+      var thumb = normalizeText(actionNode.getAttribute('data-thumbnail') || '');
+      if (thumb) return thumb;
+    }
+
+    var ogImage = getMetaContent('meta[property="og:image"]');
+    if (ogImage) return ogImage;
+
+    var twitterImage = getMetaContent('meta[name="twitter:image"]');
+    if (twitterImage) return twitterImage;
+
+    return '';
+  }
+
   function splitVdpHeading(heading) {
     var text = (heading || '').replace(/\s+/g, ' ').trim();
     var out = { year: '', make: '', model: '', trim: '' };
@@ -159,21 +249,25 @@
       var value = extractNumberText(priceNodes[i].textContent || '');
       if (value) return value;
     }
-    return '';
+    return getVdpFallbackPrice();
   }
 
   function getVdpVehicleHeading() {
-    var titleNode = document.querySelector('h1[data-testid="vehicle-title"]');
-    if (titleNode) return (titleNode.textContent || '').replace(/\s+/g, ' ').trim();
     var modalHeading = document.querySelector('.di-advanced-pricing-modal h2');
-    if (modalHeading) return (modalHeading.textContent || '').replace(/\s+/g, ' ').trim();
-    return (document.title || '').replace(/\s+/g, ' ').trim();
+    if (modalHeading) {
+      var modalText = normalizeText(modalHeading.textContent || '');
+      if (modalText) return modalText;
+    }
+    return getVdpFallbackHeading();
   }
 
   function getVdpHeroImage() {
     var imgEl = document.querySelector('img[data-testid^="vehicle-image"], .vdp-gallery__preview img, .vehicle-images img, .hero-image img');
-    if (!imgEl) return '';
-    return imgEffectiveSrc(imgEl);
+    if (imgEl) {
+      var imgSrc = imgEffectiveSrc(imgEl);
+      if (imgSrc) return imgSrc;
+    }
+    return getVdpFallbackHeroImage();
   }
 
   function getVdpVehicleData() {
@@ -187,8 +281,16 @@
       if (vinNode) vin = (vinNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
     }
 
+    if (!vin) {
+      vin = getVdpFallbackVin();
+    }
+
     var stockNode = document.querySelector('#stock[data-testid="stock-number"], span[data-testid="stock-number"]');
     if (stockNode) stock = (stockNode.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+
+    if (!stock) {
+      stock = getVdpFallbackStock();
+    }
 
     if (!vin) {
       var vinSpan = document.querySelector('.di-advanced-pricing-modal .vin');
@@ -225,6 +327,23 @@
     };
 
     return { vin: vin, stock: stock, price: price, vehicle: vehicle, vehicleData: vehicleData };
+  }
+
+  function postOfferIframeContext(iframe, pageUrl, pageType) {
+    if (!iframe || !iframe.contentWindow) return;
+    var latestData = getVdpVehicleData();
+    try {
+      iframe.contentWindow.postMessage({
+        type: 'OTP_EMBED_CONTEXT',
+        pageUrl: pageUrl,
+        page_type: pageType,
+        vin: latestData.vin,
+        stock: latestData.stock,
+        price: latestData.price,
+        vehicle: latestData.vehicle,
+        vehicleData: latestData.vehicleData
+      }, '*');
+    } catch (err) {}
   }
 
   function showOfferPopup() {
@@ -277,18 +396,10 @@
     // Send vehicle context to iframe after it loads
     if (vdpData) {
       iframe.addEventListener('load', function () {
-        try {
-          iframe.contentWindow.postMessage({
-            type: 'OTP_EMBED_CONTEXT',
-            pageUrl: pageUrl,
-            page_type: pageType,
-            vin: vdpData.vin,
-            stock: vdpData.stock,
-            price: vdpData.price,
-            vehicle: vdpData.vehicle,
-            vehicleData: vdpData.vehicleData
-          }, '*');
-        } catch (err) {}
+        postOfferIframeContext(iframe, pageUrl, pageType);
+        setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 250);
+        setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 800);
+        setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 1600);
       });
     }
 

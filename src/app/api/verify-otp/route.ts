@@ -189,7 +189,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
 
     row = {
       name: `${userData.firstName || ""} ${userData.lastName || ""}`.trim() || "Customer",
-      email: userData.email || null,
+      email: userData.email || "",
       phone: userData.phone || "",
       message: detailMsg,
       vehicle_id: vehicleId,
