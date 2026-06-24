@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import {
+  PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
@@ -687,6 +688,14 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                       rel="noopener noreferrer"
                     >
                       terms of use
+                    </a>
+                    {" "}and{" "}
+                    <a
+                      href={PRIVACY_POLICY_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      privacy policy
                     </a>
                     .
                   </span>

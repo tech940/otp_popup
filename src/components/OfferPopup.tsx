@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import {
+  PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
@@ -338,6 +339,14 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
                   >
                     terms of use
                   </a>
+                  {" "}and{" "}
+                  <a
+                    href={PRIVACY_POLICY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    privacy policy
+                  </a>
                   .
                 </span>
               </label>
@@ -375,7 +384,10 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
           {/* FOOTER */}
           <div className="offer-footer">
-            <a href={TERMS_OF_USE_URL} target="_blank" rel="noopener noreferrer">Terms & Conditions</a>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <a href={TERMS_OF_USE_URL} target="_blank" rel="noopener noreferrer">Terms & Conditions</a>
+              <a href={PRIVACY_POLICY_URL} target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+            </div>
             <p>🔒 We respect your privacy</p>
             <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#d00000", fontWeight: 700, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
               No, Thank You
