@@ -3,7 +3,7 @@ import AdminLeadsApp from "@/components/admin/AdminLeadsApp";
 
 export const metadata: Metadata = {
   title: "Leads · Admin",
-  description: "Verified OTP leads",
+  description: "Popup leads",
   robots: { index: false, follow: false },
 };
 

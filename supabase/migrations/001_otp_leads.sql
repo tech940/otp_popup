@@ -1,7 +1,7 @@
 -- Run this in Supabase SQL Editor (or via CLI migrations).
--- Table name must match SUPABASE_LEADS_TABLE (default: otp_leads).
+-- Table name must match SUPABASE_LEADS_TABLE (default: leads).
 
-create table if not exists public.otp_leads (
+create table if not exists public.leads (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   first_name text not null default '',
@@ -19,6 +19,6 @@ create table if not exists public.otp_leads (
   embed_source text
 );
 
-comment on table public.otp_leads is 'Verified OTP leads from embedded popup';
-create index if not exists otp_leads_created_at_idx on public.otp_leads (created_at desc);
-create index if not exists otp_leads_phone_idx on public.otp_leads (phone);
+comment on table public.leads is 'Popup leads captured from embedded forms';
+create index if not exists leads_created_at_idx on public.leads (created_at desc);
+create index if not exists leads_phone_idx on public.leads (phone);

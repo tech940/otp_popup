@@ -408,7 +408,7 @@ export default function AdminLeadsApp() {
         <div className="admin-leads-aurora" aria-hidden />
         <div className="relative z-10 w-full max-w-md admin-leads-login-card rounded-3xl p-8 sm:p-10">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow-sm">OTP Leads</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight drop-shadow-sm">Popup Leads</h1>
             <p className="text-sm text-white/75 mt-2 leading-relaxed">
               Enter the admin secret from your server environment (
               <code className="text-xs bg-white/15 text-white/95 px-1.5 py-0.5 rounded-md">
@@ -453,7 +453,7 @@ export default function AdminLeadsApp() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-sm">Leads</h1>
             <p className="text-white/80 text-sm mt-1">
-              Verified OTP submissions · {total} total
+              Popup submissions · {total} total
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -533,7 +533,7 @@ export default function AdminLeadsApp() {
                   <tr>
                     <td colSpan={6} className="px-4 py-16 text-center text-slate-500">
                       {leads.length === 0
-                        ? "No leads yet. Complete an OTP verification to see data here."
+                        ? "No leads yet. Complete a popup submission to see data here."
                         : "No rows match your filter."}
                     </td>
                   </tr>

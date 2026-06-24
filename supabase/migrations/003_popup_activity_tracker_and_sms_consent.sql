@@ -1,11 +1,11 @@
-alter table public.otp_leads
+alter table public.leads
   add column if not exists sms_consent_checked boolean not null default false,
   add column if not exists sms_consent_text text,
   add column if not exists sms_consent_at timestamptz;
 
-comment on column public.otp_leads.sms_consent_checked is 'Whether the user explicitly checked the SMS consent checkbox.';
-comment on column public.otp_leads.sms_consent_text is 'Consent copy shown to the user at submission time.';
-comment on column public.otp_leads.sms_consent_at is 'Timestamp recorded when the user explicitly checked the SMS consent checkbox.';
+comment on column public.leads.sms_consent_checked is 'Whether the user explicitly checked the SMS consent checkbox.';
+comment on column public.leads.sms_consent_text is 'Consent copy shown to the user at submission time.';
+comment on column public.leads.sms_consent_at is 'Timestamp recorded when the user explicitly checked the SMS consent checkbox.';
 
 create table if not exists public.popup_activity_tracker (
   id uuid primary key default gen_random_uuid(),

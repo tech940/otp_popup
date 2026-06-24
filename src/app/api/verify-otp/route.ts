@@ -45,6 +45,37 @@ function cdataSafe(s: string): string {
   return s.replace(/\]\]>/g, "]]]]><![CDATA[>");
 }
 
+function isMissingColumnError(error: any, columns: string[]): boolean {
+  const haystack = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
+  return columns.some((column) => haystack.includes(column.toLowerCase()));
+}
+
+async function insertWithFallbacks(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  table: string,
+  rows: Record<string, any>[],
+  fallbackColumns: string[][],
+) {
+  let lastResult: { error: any; data: any } | null = null;
+
+  for (let i = 0; i < rows.length; i++) {
+    const result = await supabase!.from(table).insert(rows[i]).select("id");
+    lastResult = result;
+    if (!result.error) return result;
+
+    const expectedFallback = fallbackColumns[i];
+    if (!expectedFallback || !isMissingColumnError(result.error, expectedFallback)) {
+      return result;
+    }
+
+    console.warn(
+      `[SUPABASE] ${table} insert retrying without optional columns: ${expectedFallback.join(", ")}`,
+    );
+  }
+
+  return lastResult!;
+}
+
 async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
   const url = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)?.trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -146,7 +177,13 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
       message: detailMsg,
       vehicle_id: vehicleId,
       status: "new",
-      source: carData?.source || "VDP Unlock"
+      source: carData?.source || "VDP Unlock",
+      sms_consent_checked: smsConsentChecked,
+      sms_consent_text: smsConsentText,
+      sms_consent_at: smsConsentAt,
+      terms_consent_checked: termsConsentChecked,
+      terms_consent_text: termsConsentText,
+      terms_consent_at: termsConsentAt,
     };
   } else {
     // Legacy/fallback schema format
@@ -165,7 +202,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
       page_url: carData?.pageUrl || null,
       embed_source: carData?.source || null,
       vehicle_snapshot: snap,
-      ...(table === "otp_leads"
+      ...(table === "leads"
         ? {
             sms_consent_checked: smsConsentChecked,
             sms_consent_text: smsConsentText,
@@ -178,7 +215,37 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData) {
     };
   }
 
-  const { error, data } = await supabase.from(table).insert(row).select("id");
+  const leadRows = [
+    row,
+    Object.fromEntries(
+      Object.entries(row).filter(
+        ([key]) =>
+          ![
+            "terms_consent_checked",
+            "terms_consent_text",
+            "terms_consent_at",
+          ].includes(key),
+      ),
+    ),
+    Object.fromEntries(
+      Object.entries(row).filter(
+        ([key]) =>
+          ![
+            "sms_consent_checked",
+            "sms_consent_text",
+            "sms_consent_at",
+            "terms_consent_checked",
+            "terms_consent_text",
+            "terms_consent_at",
+          ].includes(key),
+      ),
+    ),
+  ];
+
+  const { error, data } = await insertWithFallbacks(supabase, table, leadRows, [
+    ["terms_consent_checked", "terms_consent_text", "terms_consent_at"],
+    ["sms_consent_checked", "sms_consent_text", "sms_consent_at"],
+  ]);
   if (error) {
     console.error("[SUPABASE] insert failed:", error.message, error.code, error.details, error.hint);
     return;
@@ -208,34 +275,74 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
     ? userData.termsConsentAt || userData.verifiedAt || new Date().toISOString()
     : null;
 
-  const { error, data } = await supabase
-    .from("popup_activity_tracker")
-    .insert({
-      event_type: "lead_submitted",
-      popup_variant: inferPopupVariant(carData),
-      sms_consent_checked: smsConsentChecked,
-      sms_consent_text: smsConsentText,
-      sms_consent_at: smsConsentAt,
-      terms_consent_checked: termsConsentChecked,
-      terms_consent_text: termsConsentText,
-      terms_consent_at: termsConsentAt,
-      first_name: userData.firstName || null,
-      last_name: userData.lastName || null,
-      phone: userData.phone || null,
-      email: userData.email || null,
-      page_url: carData?.pageUrl || null,
-      embed_source: carData?.source || null,
-      vehicle_title: carData?.title || null,
-      vin: carData?.vin || null,
-      stock: carData?.stock || null,
-      metadata: {
-        preferredContact: userData.preferredContact || null,
-        comments: userData.comments || null,
-        verifiedAt: userData.verifiedAt || null,
-        vehicleSnapshot: snap,
-      },
-    })
-    .select("id");
+  const popupRow = {
+    event_type: "lead_submitted",
+    popup_variant: inferPopupVariant(carData),
+    sms_consent_checked: smsConsentChecked,
+    sms_consent_text: smsConsentText,
+    sms_consent_at: smsConsentAt,
+    terms_consent_checked: termsConsentChecked,
+    terms_consent_text: termsConsentText,
+    terms_consent_at: termsConsentAt,
+    first_name: userData.firstName || null,
+    last_name: userData.lastName || null,
+    phone: userData.phone || null,
+    email: userData.email || null,
+    page_url: carData?.pageUrl || null,
+    embed_source: carData?.source || null,
+    vehicle_title: carData?.title || null,
+    vin: carData?.vin || null,
+    stock: carData?.stock || null,
+    metadata: {
+      preferredContact: userData.preferredContact || null,
+      comments: userData.comments || null,
+      verifiedAt: userData.verifiedAt || null,
+      smsConsentChecked,
+      smsConsentText,
+      smsConsentAt,
+      termsConsentChecked,
+      termsConsentText,
+      termsConsentAt,
+      vehicleSnapshot: snap,
+    },
+  };
+
+  const popupRows = [
+    popupRow,
+    Object.fromEntries(
+      Object.entries(popupRow).filter(
+        ([key]) =>
+          ![
+            "terms_consent_checked",
+            "terms_consent_text",
+            "terms_consent_at",
+          ].includes(key),
+      ),
+    ),
+    Object.fromEntries(
+      Object.entries(popupRow).filter(
+        ([key]) =>
+          ![
+            "sms_consent_checked",
+            "sms_consent_text",
+            "sms_consent_at",
+            "terms_consent_checked",
+            "terms_consent_text",
+            "terms_consent_at",
+          ].includes(key),
+      ),
+    ),
+  ];
+
+  const { error, data } = await insertWithFallbacks(
+    supabase,
+    "popup_activity_tracker",
+    popupRows,
+    [
+      ["terms_consent_checked", "terms_consent_text", "terms_consent_at"],
+      ["sms_consent_checked", "sms_consent_text", "sms_consent_at"],
+    ],
+  );
 
   if (error) {
     console.error(
@@ -277,7 +384,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   );
 
   const adfDate = new Date().toISOString();
-  const popupSource = carData?.source || "OTP Portal";
+  const popupSource = carData?.source || "Lead Form";
   const dealerName = "Am Ford";
   const snap = carData?.vehicleSnapshot ?? undefined;
 
@@ -322,7 +429,7 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
     `User Comments: ${userData.comments || ""}`,
   ].join("\n");
 
-  const subjectVehicle = stock || vin || carData?.title || "OTP lead";
+  const subjectVehicle = stock || vin || carData?.title || "Lead";
   const subject = `ADF Lead: ${userData.firstName} ${userData.lastName} — ${subjectVehicle}`;
 
   const htmlRows = [

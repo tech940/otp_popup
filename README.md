@@ -44,10 +44,10 @@ TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
 # SUPABASE_URL=https://xxxx.supabase.co
 # NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 # SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-# SUPABASE_LEADS_TABLE=otp_leads
+# SUPABASE_LEADS_TABLE=leads
 ```
 
-Run the SQL in `supabase/migrations/001_otp_leads.sql` in the Supabase SQL editor to create the table, then `002_otp_leads_vehicle_snapshot.sql` for the optional JSON column (`vehicle_snapshot`).
+Run the SQL in `supabase/migrations/001_otp_leads.sql` in the Supabase SQL editor to create the `leads` table, then `002_otp_leads_vehicle_snapshot.sql` for the optional JSON column (`vehicle_snapshot`).
 
 WordPress GTM iframe URLs should pass vehicle data like `?vin=&stock=&price=&vehicle=&page_url=` (see `public/gtm-wordpress-snippet.example.txt`).
 

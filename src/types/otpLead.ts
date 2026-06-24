@@ -1,4 +1,4 @@
-/** Row shape for `public.otp_leads` (Supabase). */
+/** Row shape for `public.leads` (Supabase). */
 
 export interface OtpLeadRow {
   id: string;
