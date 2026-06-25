@@ -5,7 +5,7 @@ export const PRIVACY_POLICY_URL =
   "https://www.amfordashtabula.com/privacy-policy/";
 
 export const SMS_CONSENT_DISCLOSURE =
-  "By requesting Instant Price, you agree that AM Ford of Ashtabula County and its affiliates, and sales professionals may call/text you about your inquiry, which may involve use of automated means and prerecorded/artificial voices. Message/data rates may apply.";
+  "I agree to receive automated text messages from AM Ford of Ashtabula County at the mobile number I provide, including one-time passcode (2FA) verification and follow-ups about my inquiry. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe, HELP for help. Consent is not a condition of any purchase.";
 
 export const TERMS_CONSENT_DISCLOSURE =
   "By submitting, you agree to our terms of use and privacy policy.";

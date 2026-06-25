@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import {
   PRIVACY_POLICY_URL,
+  SMS_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
 } from "@/lib/smsConsent";
@@ -301,21 +302,21 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
             <div className="sms-consent-group offer-consent-group">
               <p className="sms-consent-copy">
-                By submitting, you agree to our{" "}
-                <a
-                  href={TERMS_OF_USE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  terms of use
-                </a>
-                {" "}and{" "}
+                {SMS_CONSENT_DISCLOSURE} See our{" "}
                 <a
                   href={PRIVACY_POLICY_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  privacy policy
+                  Privacy Policy
+                </a>
+                {" "}and{" "}
+                <a
+                  href={TERMS_OF_USE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms of Use
                 </a>
                 .
               </p>

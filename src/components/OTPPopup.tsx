@@ -651,21 +651,21 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
               <div className="sms-consent-group">
                 <p className="sms-consent-copy">
-                  {SMS_CONSENT_DISCLOSURE} You also agree to our{" "}
-                  <a
-                    href={TERMS_OF_USE_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    terms of use
-                  </a>
-                  {" "}and{" "}
+                  {SMS_CONSENT_DISCLOSURE} See our{" "}
                   <a
                     href={PRIVACY_POLICY_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    privacy policy
+                    Privacy Policy
+                  </a>
+                  {" "}and{" "}
+                  <a
+                    href={TERMS_OF_USE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Terms of Use
                   </a>
                   .
                 </p>

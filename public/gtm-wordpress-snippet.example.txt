@@ -267,9 +267,22 @@
     try { return JSON.parse(raw); }
     catch (e) { try { return JSON.parse(raw.replace(/&quot;/g, '"')); } catch (e2) { return null; } }
   }
+  function isRealVehicleCardWrap(wrap) {
+    if (!wrap || wrap.nodeType !== 1) return false;
+    var cls = ' ' + (wrap.className || '') + ' ';
+    if (cls.indexOf(' inline-banner ') !== -1) return false;
+    if (wrap.getAttribute('data-inline-banner-title')) return false;
+    if (wrap.getAttribute('data-vehicle')) return true;
+    if (wrap.getAttribute('data-vehicle-vin')) return true;
+    return false;
+  }
   function findVehicleCardRoot(el) {
     if (!el || typeof el.closest !== 'function') return null;
-    return el.closest('.result-wrap') || el.closest('[data-vehicle]') || null;
+    var dataRoot = el.closest('[data-vehicle]');
+    if (isRealVehicleCardWrap(dataRoot)) return dataRoot;
+    var wrapRoot = el.closest('.result-wrap');
+    if (isRealVehicleCardWrap(wrapRoot)) return wrapRoot;
+    return null;
   }
   function parseVehicleFromClick(clickTarget) {
     var el = clickTarget && clickTarget.nodeType === 1 ? clickTarget : document.body;
@@ -475,6 +488,7 @@
     stock = (stock || '').trim().toUpperCase();
     var wraps = document.querySelectorAll('.result-wrap');
     for (var i = 0; i < wraps.length; i++) {
+      if (!isRealVehicleCardWrap(wraps[i])) continue;
       var ctx = parseVehicleFromClick(wraps[i]);
       if (vin && (ctx.vin || '').trim().toUpperCase() === vin) return wraps[i];
       if (!vin && stock && (ctx.stock || '').trim().toUpperCase() === stock) return wraps[i];
@@ -495,6 +509,7 @@
 
   function injectUnlockButton(wrap) {
     if (!wrap) return;
+    if (!isRealVehicleCardWrap(wrap)) return;
     if (wrap.querySelector('.otp-unlock-ip-wrapper')) return;
     if (wrap.classList.contains('otp-price-revealed')) return;
 
@@ -566,6 +581,7 @@
   }
 
   function applyCardState(wrap) {
+    if (!isRealVehicleCardWrap(wrap)) return;
     injectStylesOnce();
     hideLegacyCtasInCard(wrap);
 
@@ -587,7 +603,7 @@
     for (var i = 0; i < cards.length; i++) applyCardState(cards[i]);
     if (!cards.length) {
       var one = document.querySelector('[data-vehicle]');
-      if (one) applyCardState(one);
+      if (isRealVehicleCardWrap(one)) applyCardState(one);
     }
     bindLegacyButtons();
   }
@@ -606,6 +622,7 @@
       clone.dataset.popupBound = 'true';
       clone.addEventListener('click', function (e) {
         var root = findVehicleCardRoot(e.target);
+        if (!isRealVehicleCardWrap(root)) return;
         var k = unlockKeyFromContext(parseVehicleFromClick(root || e.target));
         if (k && isKeyUnlocked(k)) return;
         if (isGloballyVerified() && root) {
