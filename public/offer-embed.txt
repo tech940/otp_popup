@@ -354,6 +354,7 @@
     var pageUrl = window.location.href;
     var cacheBust = new Date().getTime();
     var pageType = getPageType();
+    if (pageType !== 'VDP') return;
 
     var vdpData = null;
     if (pageType === 'VDP') {
@@ -439,9 +440,8 @@
 
   function initTimedOffer() {
     var pageType = getPageType();
-    if (pageType === 'Other') return;
-
-    var delaySeconds = pageType === 'VDP' ? 4 : pageType === 'SRP' ? 6 : 5;
+    if (pageType !== 'VDP') return;
+    var delaySeconds = 7;
     setTimeout(showOfferPopup, delaySeconds * 1000);
   }
 
