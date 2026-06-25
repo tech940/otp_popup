@@ -591,7 +591,7 @@ body::-webkit-scrollbar {
   width: 100%;
   min-height: 100vh;
   padding: 18px;
-  padding-top: calc(18px + env(safe-area-inset-top, 0px));
+  padding-top: calc(42px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   padding-left: calc(18px + env(safe-area-inset-left, 0px));
   padding-right: calc(18px + env(safe-area-inset-right, 0px));
@@ -939,7 +939,7 @@ body::-webkit-scrollbar {
 @media (max-width: 640px) {
   .trade-offer-overlay {
     padding: 14px;
-    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    padding-top: calc(34px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     padding-left: calc(14px + env(safe-area-inset-left, 0px));
     padding-right: calc(14px + env(safe-area-inset-right, 0px));
