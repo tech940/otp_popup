@@ -26,11 +26,9 @@ interface TradeOfferPopupProps {
 }
 
 const TRADE_HERO_IMAGE =
-  "https://vehicle-images.carscommerce.inc/8419-110013336/1FTEW1E43LFB36713/7a3155485fbc615d20e0b0cac251b7a9.webp";
+  "https://vehicle-images.carscommerce.inc/9d49-110013336/1FTEW3LP7TKD22464/844985e1845dbb3c196e6a196fe08341.webp";
 
-function buildTradeSourceLabel(pageSource: string): string {
-  if (pageSource === "Home") return "Trade Value Popup (Home page)";
-  if (pageSource === "SRP") return "Trade Value Popup (Listing page)";
+function buildTradeSourceLabel(_pageSource: string): string {
   return "Trade Value Popup";
 }
 

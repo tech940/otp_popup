@@ -588,6 +588,12 @@ body::-webkit-scrollbar {
 }
 
 .trade-offer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   width: 100%;
   min-height: 100vh;
   padding: 18px;
@@ -597,6 +603,7 @@ body::-webkit-scrollbar {
   padding-right: calc(18px + env(safe-area-inset-right, 0px));
   background: transparent;
   font-family: 'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
 }
 
 .trade-offer-shell {
@@ -608,8 +615,8 @@ body::-webkit-scrollbar {
   color: #111111;
   border-radius: 0;
   overflow-x: hidden;
-  overflow-y: auto;
-  max-height: min(82vh, 620px);
+  overflow-y: hidden;
+  max-height: calc(100vh - 96px);
   box-shadow: none;
 }
 
@@ -638,13 +645,13 @@ body::-webkit-scrollbar {
 .trade-offer-hero {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.1fr);
-  min-height: 178px;
+  min-height: 160px;
 }
 
 .trade-offer-promo {
   background: #050505;
   color: #ffffff;
-  padding: 20px 22px 16px;
+  padding: 16px 18px 12px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -652,38 +659,38 @@ body::-webkit-scrollbar {
 
 .trade-offer-promo-line {
   width: 100%;
-  max-width: 110px;
+  max-width: 96px;
   height: 2px;
   background: rgba(255, 255, 255, 0.72);
 }
 
 .trade-offer-promo-amount {
-  margin-top: 12px;
-  font-size: clamp(42px, 5vw, 60px);
+  margin-top: 10px;
+  font-size: clamp(38px, 4.3vw, 54px);
   line-height: 0.9;
   font-weight: 900;
   letter-spacing: -0.06em;
 }
 
 .trade-offer-promo-copy {
-  margin-top: 10px;
-  font-size: clamp(18px, 2.2vw, 28px);
+  margin-top: 8px;
+  font-size: clamp(16px, 1.95vw, 24px);
   line-height: 0.94;
   font-weight: 800;
   letter-spacing: -0.05em;
 }
 
 .trade-offer-promo-footnote {
-  margin-top: 10px;
-  max-width: 185px;
-  font-size: 8px;
-  line-height: 1.35;
+  margin-top: 8px;
+  max-width: 172px;
+  font-size: 7px;
+  line-height: 1.25;
   color: rgba(255, 255, 255, 0.6);
 }
 
 .trade-offer-hero-image-wrap {
   position: relative;
-  min-height: 178px;
+  min-height: 160px;
   background: linear-gradient(180deg, #e9d8b2 0%, #d0c3aa 38%, #baa88c 100%);
 }
 
@@ -704,7 +711,7 @@ body::-webkit-scrollbar {
 }
 
 .trade-offer-body {
-  padding: 18px 20px 18px;
+  padding: 14px 16px 12px;
   background: #ffffff;
 }
 
@@ -716,7 +723,7 @@ body::-webkit-scrollbar {
 .trade-offer-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 16px;
+  gap: 12px 12px;
 }
 
 .trade-offer-field {
@@ -730,13 +737,13 @@ body::-webkit-scrollbar {
 
 .trade-offer-field-label {
   position: absolute;
-  top: -0.55rem;
-  left: 10px;
+  top: -0.5rem;
+  left: 8px;
   z-index: 1;
-  padding: 0 6px;
+  padding: 0 5px;
   background: #ffffff;
   color: #9ca3af;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.2;
   font-weight: 500;
 }
@@ -747,12 +754,12 @@ body::-webkit-scrollbar {
 
 .trade-offer-field-input {
   width: 100%;
-  height: 42px;
+  height: 38px;
   border: 2px solid #d6d8dc;
   border-radius: 0;
   background: #ffffff;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: 6px 8px;
+  font-size: 12px;
   color: #111111;
   outline: none;
   appearance: none;
@@ -770,41 +777,41 @@ body::-webkit-scrollbar {
 }
 
 .trade-offer-select {
-  padding-right: 40px;
+  padding-right: 34px;
   background-image:
     linear-gradient(45deg, transparent 50%, #111111 50%),
     linear-gradient(135deg, #111111 50%, transparent 50%);
   background-position:
-    calc(100% - 18px) calc(50% - 2px),
-    calc(100% - 12px) calc(50% - 2px);
-  background-size: 7px 7px, 7px 7px;
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 10px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
 }
 
 .trade-offer-error {
-  margin-top: 12px;
+  margin-top: 10px;
   border: 1px solid #fecaca;
   background: #fef2f2;
   color: #dc2626;
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
+  padding: 7px 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .trade-offer-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .trade-offer-primary,
 .trade-offer-secondary {
-  min-height: 42px;
+  min-height: 38px;
   border: none;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
@@ -831,12 +838,12 @@ body::-webkit-scrollbar {
 }
 
 .trade-offer-consent {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .trade-offer-consent-copy {
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 9px;
+  line-height: 1.35;
   color: #8b95a1;
 }
 
@@ -848,11 +855,11 @@ body::-webkit-scrollbar {
 }
 
 .trade-offer-terms-links {
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .trade-offer-success-mark {
@@ -887,53 +894,54 @@ body::-webkit-scrollbar {
 @media (max-width: 900px) {
   .trade-offer-shell {
     max-width: 640px;
-    max-height: min(88vh, 720px);
+    max-height: calc(100vh - 96px);
     margin-top: 56px;
   }
 
   .trade-offer-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    min-height: 150px;
   }
 
   .trade-offer-promo {
-    padding: 24px 22px 18px;
+    padding: 14px 16px 12px;
   }
 
   .trade-offer-promo-line {
-    max-width: 150px;
+    max-width: 88px;
   }
 
   .trade-offer-promo-amount {
-    font-size: 58px;
+    font-size: 42px;
   }
 
   .trade-offer-promo-copy {
-    font-size: 28px;
+    font-size: 16px;
   }
 
   .trade-offer-hero-image-wrap {
-    min-height: 200px;
+    min-height: 150px;
   }
 
   .trade-offer-body {
-    padding: 20px 18px 18px;
+    padding: 14px 16px 12px;
   }
 
   .trade-offer-grid {
-    gap: 18px 14px;
+    gap: 12px;
   }
 
   .trade-offer-field-label,
   .trade-offer-consent-copy,
   .trade-offer-terms-links {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .trade-offer-field-input,
   .trade-offer-primary,
   .trade-offer-secondary {
-    min-height: 48px;
-    height: 48px;
+    min-height: 38px;
+    height: 38px;
   }
 }
 
@@ -948,14 +956,14 @@ body::-webkit-scrollbar {
 
   .trade-offer-shell {
     max-width: 100%;
-    max-height: min(82vh, 620px);
+    max-height: calc(100vh - 84px);
     margin-top: 52px;
     border-radius: 0;
   }
 
   .trade-offer-hero {
     grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-    min-height: 146px;
+    min-height: 132px;
   }
 
   .trade-offer-close {
@@ -968,56 +976,56 @@ body::-webkit-scrollbar {
   }
 
   .trade-offer-promo {
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 10px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 8px;
   }
 
   .trade-offer-promo-line {
-    max-width: 74px;
+    max-width: 66px;
   }
 
   .trade-offer-promo-amount {
     margin-top: 8px;
-    font-size: 41px;
+    font-size: 36px;
   }
 
   .trade-offer-promo-copy {
-    margin-top: 8px;
-    font-size: 14px;
+    margin-top: 6px;
+    font-size: 13px;
     line-height: 0.94;
     letter-spacing: -0.04em;
   }
 
   .trade-offer-promo-footnote {
-    margin-top: 8px;
-    max-width: 92px;
+    margin-top: 6px;
+    max-width: 82px;
     font-size: 5px;
     line-height: 1.2;
   }
 
   .trade-offer-hero-image-wrap {
-    min-height: 146px;
+    min-height: 132px;
   }
 
   .trade-offer-body {
-    padding: 14px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
   }
 
   .trade-offer-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 10px;
   }
 
   .trade-offer-field-input,
   .trade-offer-primary,
   .trade-offer-secondary {
-    height: 44px;
-    min-height: 44px;
+    height: 38px;
+    min-height: 38px;
   }
 
   .trade-offer-field-label {
-    left: 10px;
-    top: -0.56rem;
-    padding: 0 6px;
+    left: 8px;
+    top: -0.5rem;
+    padding: 0 5px;
     font-size: 11px;
   }
 
@@ -1027,22 +1035,22 @@ body::-webkit-scrollbar {
   }
 
   .trade-offer-field-input {
-    padding: 10px 12px;
+    padding: 8px 10px;
     font-size: 12px;
   }
 
   .trade-offer-select {
-    padding-right: 38px;
+    padding-right: 34px;
     background-position:
-      calc(100% - 18px) calc(50% - 2px),
-      calc(100% - 11px) calc(50% - 2px);
-    background-size: 7px 7px, 7px 7px;
+      calc(100% - 16px) calc(50% - 2px),
+      calc(100% - 10px) calc(50% - 2px);
+    background-size: 6px 6px, 6px 6px;
   }
 
   .trade-offer-actions {
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-top: 12px;
+    gap: 10px;
+    margin-top: 10px;
   }
 
   .trade-offer-primary,
@@ -1051,11 +1059,11 @@ body::-webkit-scrollbar {
   }
 
   .trade-offer-consent {
-    margin-top: 12px;
+    margin-top: 8px;
   }
 
   .trade-offer-terms-links {
-    gap: 10px;
+    gap: 8px;
   }
 
   .trade-offer-shell--success {

@@ -122,7 +122,7 @@
     clearEnquiryCookies();
     var pageType = getPageType();
     if (pageType !== 'Home' && pageType !== 'SRP') return;
-    var delaySeconds = pageType === 'Home' ? 5 : 6;
+    var delaySeconds = 8;
     setTimeout(showTradeOfferPopup, delaySeconds * 1000);
   }
 
