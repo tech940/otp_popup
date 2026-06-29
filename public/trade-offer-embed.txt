@@ -31,6 +31,13 @@
     return 'Other';
   }
 
+  function isUnlockPopupOpen() {
+    if (window.__amFordUnlockPopupOpen) return true;
+    if (document.getElementById('custom-price-popup')) return true;
+    if (document.getElementById('otp-vdp-popup')) return true;
+    return false;
+  }
+
   function removeTradeOfferOverlay() {
     var overlay = document.getElementById('custom-trade-offer-popup');
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -51,6 +58,7 @@
   function showTradeOfferPopup() {
     var pageType = getPageType();
     if (pageType !== 'Home' && pageType !== 'SRP') return;
+    if (isUnlockPopupOpen()) return;
 
     removeTradeOfferOverlay();
 
@@ -123,7 +131,10 @@
     var pageType = getPageType();
     if (pageType !== 'Home' && pageType !== 'SRP') return;
     var delaySeconds = 8;
-    setTimeout(showTradeOfferPopup, delaySeconds * 1000);
+    setTimeout(function () {
+      if (isUnlockPopupOpen()) return;
+      showTradeOfferPopup();
+    }, delaySeconds * 1000);
   }
 
   window.TradeOfferPopup = { open: showTradeOfferPopup, close: removeTradeOfferOverlay };

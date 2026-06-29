@@ -53,6 +53,13 @@
     return 'Other';
   }
 
+  function isUnlockPopupOpen() {
+    if (window.__amFordUnlockPopupOpen) return true;
+    if (document.getElementById('custom-price-popup')) return true;
+    if (document.getElementById('otp-vdp-popup')) return true;
+    return false;
+  }
+
   function imgEffectiveSrc(img) {
     try {
       if (img.currentSrc) {
@@ -349,6 +356,7 @@
 
   function showOfferPopup() {
     if (isDismissed()) return;
+    if (isUnlockPopupOpen()) return;
     removeOfferOverlay();
 
     var pageUrl = window.location.href;
@@ -442,7 +450,10 @@
     var pageType = getPageType();
     if (pageType !== 'VDP') return;
     var delaySeconds = 8;
-    setTimeout(showOfferPopup, delaySeconds * 1000);
+    setTimeout(function () {
+      if (isUnlockPopupOpen()) return;
+      showOfferPopup();
+    }, delaySeconds * 1000);
   }
 
   window.OfferPopup = { open: showOfferPopup, close: removeOfferOverlay };

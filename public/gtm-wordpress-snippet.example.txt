@@ -58,7 +58,6 @@
       localStorage.setItem(GLOBAL_VERIFY_KEY, expiry.toString());
     } catch (e) {}
   }
-
   function unlockKeyFromContext(ctx) {
     if (!ctx) return '';
     var v = (ctx.vin || '').trim().toUpperCase(); if (v) return 'V:' + v;
@@ -100,6 +99,7 @@
     if (o1 && o1.parentNode) o1.parentNode.removeChild(o1);
     var o2 = document.getElementById('otp-vdp-popup');
     if (o2 && o2.parentNode) o2.parentNode.removeChild(o2);
+    window.__amFordUnlockPopupOpen = false;
     try {
       if (typeof window.__otpScrollY === 'number') {
         window.scrollTo(0, window.__otpScrollY);
@@ -441,6 +441,8 @@
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+    window.__amFordUnlockPopupOpen = true;
+    document.body.style.overflow = 'hidden';
   }
 
   var __celebGuard = { key: '', t: 0 };
@@ -969,6 +971,17 @@
       localStorage.setItem(GLOBAL_VERIFY_KEY, expiry.toString());
     } catch (e) {}
   }
+  function removePopupOverlay() {
+    var overlay = document.getElementById('otp-vdp-popup');
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    document.body.style.overflow = '';
+    window.__amFordUnlockPopupOpen = false;
+    try {
+      if (typeof window.__otpScrollY === 'number') {
+        window.scrollTo(0, window.__otpScrollY);
+      }
+    } catch (e) {}
+  }
 
   /* ─────────────────────────────────────────────
      VIN / STOCK  — read from DOM
@@ -1257,6 +1270,8 @@
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+    window.__amFordUnlockPopupOpen = true;
+    document.body.style.overflow = 'hidden';
   }
 
   /* ─────────────────────────────────────────────
