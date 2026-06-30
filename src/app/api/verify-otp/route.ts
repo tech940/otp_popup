@@ -26,6 +26,12 @@ interface UserData {
   smsConsentChecked?: boolean;
   smsConsentText?: string;
   smsConsentAt?: string | null;
+  smsMarketingConsentChecked?: boolean;
+  smsMarketingConsentText?: string;
+  smsMarketingConsentAt?: string | null;
+  smsTransactionalConsentChecked?: boolean;
+  smsTransactionalConsentText?: string;
+  smsTransactionalConsentAt?: string | null;
   termsConsentChecked?: boolean;
   termsConsentText?: string;
   termsConsentAt?: string | null;
@@ -101,6 +107,16 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
   const smsConsentText = (userData.smsConsentText || SMS_CONSENT_DISCLOSURE).trim();
   const smsConsentAt = smsConsentChecked
     ? userData.smsConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+  const smsMarketingConsentChecked = Boolean(userData.smsMarketingConsentChecked);
+  const smsMarketingConsentText = (userData.smsMarketingConsentText || "").trim();
+  const smsMarketingConsentAt = smsMarketingConsentChecked
+    ? userData.smsMarketingConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+  const smsTransactionalConsentChecked = Boolean(userData.smsTransactionalConsentChecked);
+  const smsTransactionalConsentText = (userData.smsTransactionalConsentText || "").trim();
+  const smsTransactionalConsentAt = smsTransactionalConsentChecked
+    ? userData.smsTransactionalConsentAt || userData.verifiedAt || new Date().toISOString()
     : null;
   const termsConsentChecked = Boolean(userData.termsConsentChecked);
   const termsConsentText = (userData.termsConsentText || TERMS_CONSENT_DISCLOSURE).trim();
@@ -179,6 +195,12 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
       `SMS Consent Checked: ${smsConsentChecked ? "Yes" : "No"}`,
       `SMS Consent Timestamp: ${smsConsentAt || ""}`,
       `SMS Consent Copy: ${smsConsentText}`,
+      `SMS Marketing Consent Checked: ${smsMarketingConsentChecked ? "Yes" : "No"}`,
+      `SMS Marketing Consent Timestamp: ${smsMarketingConsentAt || ""}`,
+      `SMS Marketing Consent Copy: ${smsMarketingConsentText}`,
+      `SMS Transactional Consent Checked: ${smsTransactionalConsentChecked ? "Yes" : "No"}`,
+      `SMS Transactional Consent Timestamp: ${smsTransactionalConsentAt || ""}`,
+      `SMS Transactional Consent Copy: ${smsTransactionalConsentText}`,
       `Terms Consent Checked: ${termsConsentChecked ? "Yes" : "No"}`,
       `Terms Consent Timestamp: ${termsConsentAt || ""}`,
       `Terms Consent Copy: ${termsConsentText}`,
@@ -199,6 +221,12 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
       sms_consent_checked: smsConsentChecked,
       sms_consent_text: smsConsentText,
       sms_consent_at: smsConsentAt,
+      sms_marketing_consent_checked: smsMarketingConsentChecked,
+      sms_marketing_consent_text: smsMarketingConsentText,
+      sms_marketing_consent_at: smsMarketingConsentAt,
+      sms_transactional_consent_checked: smsTransactionalConsentChecked,
+      sms_transactional_consent_text: smsTransactionalConsentText,
+      sms_transactional_consent_at: smsTransactionalConsentAt,
       terms_consent_checked: termsConsentChecked,
       terms_consent_text: termsConsentText,
       terms_consent_at: termsConsentAt,
@@ -225,6 +253,12 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
             sms_consent_checked: smsConsentChecked,
             sms_consent_text: smsConsentText,
             sms_consent_at: smsConsentAt,
+            sms_marketing_consent_checked: smsMarketingConsentChecked,
+            sms_marketing_consent_text: smsMarketingConsentText,
+            sms_marketing_consent_at: smsMarketingConsentAt,
+            sms_transactional_consent_checked: smsTransactionalConsentChecked,
+            sms_transactional_consent_text: smsTransactionalConsentText,
+            sms_transactional_consent_at: smsTransactionalConsentAt,
             terms_consent_checked: termsConsentChecked,
             terms_consent_text: termsConsentText,
             terms_consent_at: termsConsentAt,
@@ -233,11 +267,26 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
     };
   }
 
+  const marketingAndTransactionalSMSConsentKeys = [
+    "sms_marketing_consent_checked",
+    "sms_marketing_consent_text",
+    "sms_marketing_consent_at",
+    "sms_transactional_consent_checked",
+    "sms_transactional_consent_text",
+    "sms_transactional_consent_at",
+  ];
+
   const leadRows = [
     row,
     Object.fromEntries(
       Object.entries(row).filter(
+        ([key]) => !marketingAndTransactionalSMSConsentKeys.includes(key)
+      )
+    ),
+    Object.fromEntries(
+      Object.entries(row).filter(
         ([key]) =>
+          !marketingAndTransactionalSMSConsentKeys.includes(key) &&
           ![
             "terms_consent_checked",
             "terms_consent_text",
@@ -248,6 +297,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
     Object.fromEntries(
       Object.entries(row).filter(
         ([key]) =>
+          !marketingAndTransactionalSMSConsentKeys.includes(key) &&
           ![
             "sms_consent_checked",
             "sms_consent_text",
@@ -261,6 +311,7 @@ async function saveLeadToSupabase(userData: UserData, carData?: CarData): Promis
   ];
 
   const { error, data } = await insertWithFallbacks(supabase, table, leadRows, [
+    marketingAndTransactionalSMSConsentKeys,
     ["terms_consent_checked", "terms_consent_text", "terms_consent_at"],
     ["sms_consent_checked", "sms_consent_text", "sms_consent_at"],
   ]);
@@ -302,6 +353,16 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
   const smsConsentAt = smsConsentChecked
     ? userData.smsConsentAt || userData.verifiedAt || new Date().toISOString()
     : null;
+  const smsMarketingConsentChecked = Boolean(userData.smsMarketingConsentChecked);
+  const smsMarketingConsentText = (userData.smsMarketingConsentText || "").trim();
+  const smsMarketingConsentAt = smsMarketingConsentChecked
+    ? userData.smsMarketingConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
+  const smsTransactionalConsentChecked = Boolean(userData.smsTransactionalConsentChecked);
+  const smsTransactionalConsentText = (userData.smsTransactionalConsentText || "").trim();
+  const smsTransactionalConsentAt = smsTransactionalConsentChecked
+    ? userData.smsTransactionalConsentAt || userData.verifiedAt || new Date().toISOString()
+    : null;
   const termsConsentChecked = Boolean(userData.termsConsentChecked);
   const termsConsentText = (userData.termsConsentText || TERMS_CONSENT_DISCLOSURE).trim();
   const termsConsentAt = termsConsentChecked
@@ -314,6 +375,12 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
     sms_consent_checked: smsConsentChecked,
     sms_consent_text: smsConsentText,
     sms_consent_at: smsConsentAt,
+    sms_marketing_consent_checked: smsMarketingConsentChecked,
+    sms_marketing_consent_text: smsMarketingConsentText,
+    sms_marketing_consent_at: smsMarketingConsentAt,
+    sms_transactional_consent_checked: smsTransactionalConsentChecked,
+    sms_transactional_consent_text: smsTransactionalConsentText,
+    sms_transactional_consent_at: smsTransactionalConsentAt,
     terms_consent_checked: termsConsentChecked,
     terms_consent_text: termsConsentText,
     terms_consent_at: termsConsentAt,
@@ -333,6 +400,12 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
       smsConsentChecked,
       smsConsentText,
       smsConsentAt,
+      smsMarketingConsentChecked,
+      smsMarketingConsentText,
+      smsMarketingConsentAt,
+      smsTransactionalConsentChecked,
+      smsTransactionalConsentText,
+      smsTransactionalConsentAt,
       termsConsentChecked,
       termsConsentText,
       termsConsentAt,
@@ -340,11 +413,26 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
     },
   };
 
+  const marketingAndTransactionalSMSConsentKeys = [
+    "sms_marketing_consent_checked",
+    "sms_marketing_consent_text",
+    "sms_marketing_consent_at",
+    "sms_transactional_consent_checked",
+    "sms_transactional_consent_text",
+    "sms_transactional_consent_at",
+  ];
+
   const popupRows = [
     popupRow,
     Object.fromEntries(
       Object.entries(popupRow).filter(
+        ([key]) => !marketingAndTransactionalSMSConsentKeys.includes(key)
+      )
+    ),
+    Object.fromEntries(
+      Object.entries(popupRow).filter(
         ([key]) =>
+          !marketingAndTransactionalSMSConsentKeys.includes(key) &&
           ![
             "terms_consent_checked",
             "terms_consent_text",
@@ -355,6 +443,7 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
     Object.fromEntries(
       Object.entries(popupRow).filter(
         ([key]) =>
+          !marketingAndTransactionalSMSConsentKeys.includes(key) &&
           ![
             "sms_consent_checked",
             "sms_consent_text",
@@ -372,6 +461,7 @@ async function savePopupActivityToSupabase(userData: UserData, carData?: CarData
     "popup_activity_tracker",
     popupRows,
     [
+      marketingAndTransactionalSMSConsentKeys,
       ["terms_consent_checked", "terms_consent_text", "terms_consent_at"],
       ["sms_consent_checked", "sms_consent_text", "sms_consent_at"],
     ],
@@ -460,10 +550,23 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
   }
   if (!model && carData?.title) model = carData.title;
 
+  const smsMarketingConsentChecked = Boolean(userData.smsMarketingConsentChecked);
+  const smsMarketingConsentText = (userData.smsMarketingConsentText || "").trim();
+  const smsMarketingConsentAt = userData.smsMarketingConsentAt || "";
+  const smsTransactionalConsentChecked = Boolean(userData.smsTransactionalConsentChecked);
+  const smsTransactionalConsentText = (userData.smsTransactionalConsentText || "").trim();
+  const smsTransactionalConsentAt = userData.smsTransactionalConsentAt || "";
+
   const detailLines = [
     `SMS Consent Checked: ${userData.smsConsentChecked ? "Yes" : "No"}`,
     `SMS Consent Timestamp: ${userData.smsConsentAt || ""}`,
     `SMS Consent Copy: ${userData.smsConsentText || SMS_CONSENT_DISCLOSURE}`,
+    `SMS Marketing Consent Checked: ${smsMarketingConsentChecked ? "Yes" : "No"}`,
+    `SMS Marketing Consent Timestamp: ${smsMarketingConsentAt}`,
+    `SMS Marketing Consent Copy: ${smsMarketingConsentText}`,
+    `SMS Transactional Consent Checked: ${smsTransactionalConsentChecked ? "Yes" : "No"}`,
+    `SMS Transactional Consent Timestamp: ${smsTransactionalConsentAt}`,
+    `SMS Transactional Consent Copy: ${smsTransactionalConsentText}`,
     `Terms Consent Checked: ${userData.termsConsentChecked ? "Yes" : "No"}`,
     `Terms Consent Timestamp: ${userData.termsConsentAt || ""}`,
     `Terms Consent Copy: ${userData.termsConsentText || TERMS_CONSENT_DISCLOSURE}`,
@@ -482,6 +585,12 @@ async function sendAdminEmail(userData: UserData, carData?: CarData) {
     ["SMS consent", escapeHtml(userData.smsConsentChecked ? "Yes" : "No")],
     ["Consent timestamp", escapeHtml(userData.smsConsentAt || "")],
     ["Consent copy", escapeHtml(userData.smsConsentText || SMS_CONSENT_DISCLOSURE)],
+    ["SMS Marketing consent", escapeHtml(smsMarketingConsentChecked ? "Yes" : "No")],
+    ["Marketing consent timestamp", escapeHtml(smsMarketingConsentAt)],
+    ["Marketing consent copy", escapeHtml(smsMarketingConsentText)],
+    ["SMS Transactional consent", escapeHtml(smsTransactionalConsentChecked ? "Yes" : "No")],
+    ["Transactional consent timestamp", escapeHtml(smsTransactionalConsentAt)],
+    ["Transactional consent copy", escapeHtml(smsTransactionalConsentText)],
     ["Terms accepted", escapeHtml(userData.termsConsentChecked ? "Yes" : "No")],
     ["Terms timestamp", escapeHtml(userData.termsConsentAt || "")],
     ["Terms copy", escapeHtml(userData.termsConsentText || TERMS_CONSENT_DISCLOSURE)],

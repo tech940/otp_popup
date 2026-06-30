@@ -214,6 +214,30 @@ function LeadExpandedDetail({ lead }: { lead: OtpLeadRow }) {
                 </p>
               ) : null}
               <p className="text-xs text-slate-400 mt-3">Verified {formatWhen(lead.verified_at)}</p>
+              <div className="border-t border-slate-300/40 mt-3 pt-3 flex flex-col gap-1.5 text-xs text-slate-700">
+                <div>
+                  <span className="font-semibold">Marketing SMS: </span>
+                  <span>
+                    {lead.sms_marketing_consent_checked ? "☑ Opted In" : "☒ Opted Out"}
+                  </span>
+                  {lead.sms_marketing_consent_at ? (
+                    <span className="text-slate-500 block text-[10px] mt-0.5">
+                      Consent Date: {formatWhen(lead.sms_marketing_consent_at)}
+                    </span>
+                  ) : null}
+                </div>
+                <div>
+                  <span className="font-semibold">Transactional SMS: </span>
+                  <span>
+                    {lead.sms_transactional_consent_checked ? "☑ Opted In" : "☒ Opted Out"}
+                  </span>
+                  {lead.sms_transactional_consent_at ? (
+                    <span className="text-slate-500 block text-[10px] mt-0.5">
+                      Consent Date: {formatWhen(lead.sms_transactional_consent_at)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="rounded-xl border border-white/55 bg-white/35 backdrop-blur-sm p-4">
               <h4 className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-3">

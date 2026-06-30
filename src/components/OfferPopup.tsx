@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import {
   PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
+  SMS_MARKETING_CONSENT_DISCLOSURE,
+  SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
 } from "@/lib/smsConsent";
@@ -42,7 +44,10 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-
+  const [smsMarketingChecked, setSmsMarketingChecked] = useState(false);
+  const [smsMarketingAt, setSmsMarketingAt] = useState<string | null>(null);
+  const [smsTransactionalChecked, setSmsTransactionalChecked] = useState(false);
+  const [smsTransactionalAt, setSmsTransactionalAt] = useState<string | null>(null);
   const [carData, setCarData] = useState<CarData>(() => {
     if (initialCarData) return initialCarData;
     if (typeof window === "undefined") return { title: "", price: "", vin: "", stock: "", pageUrl: "" };
@@ -88,8 +93,14 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+
+    if (!smsTransactionalChecked) {
+      setError("Please agree to receive transactional/2FA messages to continue.");
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const payload = {
@@ -101,12 +112,18 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
           preferredContact: "Email",
           comments: "Submitted via $500 OFF Offer Popup",
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked: false,
-          smsConsentText: null,
-          smsConsentAt: null,
-          termsConsentChecked: false,
+          smsConsentChecked: smsTransactionalChecked,
+          smsConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsConsentAt: smsTransactionalAt || new Date().toISOString(),
+          smsMarketingConsentChecked: smsMarketingChecked,
+          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
+          smsMarketingConsentAt: smsMarketingAt,
+          smsTransactionalConsentChecked: smsTransactionalChecked,
+          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsTransactionalConsentAt: smsTransactionalAt || new Date().toISOString(),
+          termsConsentChecked: true,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: null,
+          termsConsentAt: new Date().toISOString(),
         },
         car: {
           ...carData,
@@ -301,8 +318,47 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
             )}
 
             <div className="sms-consent-group offer-consent-group">
-              <p className="sms-consent-copy">
-                {SMS_CONSENT_DISCLOSURE} See our{" "}
+              <div className="sms-consent-row" onClick={() => {
+                const newVal = !smsMarketingChecked;
+                setSmsMarketingChecked(newVal);
+                setSmsMarketingAt(newVal ? new Date().toISOString() : null);
+              }}>
+                <input
+                  type="checkbox"
+                  className="sms-consent-checkbox"
+                  checked={smsMarketingChecked}
+                  onChange={(e) => {
+                    setSmsMarketingChecked(e.target.checked);
+                    setSmsMarketingAt(e.target.checked ? new Date().toISOString() : null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="sms-consent-copy">
+                  {SMS_MARKETING_CONSENT_DISCLOSURE}
+                </span>
+              </div>
+
+              <div className="sms-consent-row" style={{ marginTop: 12 }} onClick={() => {
+                const newVal = !smsTransactionalChecked;
+                setSmsTransactionalChecked(newVal);
+                setSmsTransactionalAt(newVal ? new Date().toISOString() : null);
+              }}>
+                <input
+                  type="checkbox"
+                  className="sms-consent-checkbox"
+                  checked={smsTransactionalChecked}
+                  onChange={(e) => {
+                    setSmsTransactionalChecked(e.target.checked);
+                    setSmsTransactionalAt(e.target.checked ? new Date().toISOString() : null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="sms-consent-copy">
+                  {SMS_TRANSACTIONAL_CONSENT_DISCLOSURE}
+                </span>
+              </div>
+
+              <div className="sms-consent-terms" style={{ marginLeft: 26, marginTop: 10 }}>
                 <a
                   href={PRIVACY_POLICY_URL}
                   target="_blank"
@@ -316,10 +372,9 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Terms of Use
+                  Terms of Service
                 </a>
-                .
-              </p>
+              </div>
             </div>
 
             {/* CTA */}

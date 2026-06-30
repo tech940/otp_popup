@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import {
   PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
+  SMS_MARKETING_CONSENT_DISCLOSURE,
+  SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
 } from "@/lib/smsConsent";
@@ -53,6 +55,10 @@ export default function TradeOfferPopup({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [invalidFields, setInvalidFields] = useState<string[]>([]);
+  const [smsMarketingChecked, setSmsMarketingChecked] = useState(false);
+  const [smsMarketingAt, setSmsMarketingAt] = useState<string | null>(null);
+  const [smsTransactionalChecked, setSmsTransactionalChecked] = useState(false);
+  const [smsTransactionalAt, setSmsTransactionalAt] = useState<string | null>(null);
 
   const [carData, setCarData] = useState<CarData>(() => {
     if (initialCarData) return initialCarData;
@@ -125,6 +131,11 @@ export default function TradeOfferPopup({
     setError("");
     setInvalidFields([]);
 
+    if (!smsTransactionalChecked) {
+      setError("Please agree to receive transactional/2FA messages to continue.");
+      return;
+    }
+
     const errors: string[] = [];
     if (!firstName.trim()) errors.push("firstName");
     if (phone.length < 12) errors.push("phone");
@@ -149,12 +160,18 @@ export default function TradeOfferPopup({
           preferredContact,
           comments: "Submitted via Trade Value Popup",
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked: false,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
-          smsConsentAt: null,
-          termsConsentChecked: false,
+          smsConsentChecked: smsTransactionalChecked,
+          smsConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsConsentAt: smsTransactionalAt || new Date().toISOString(),
+          smsMarketingConsentChecked: smsMarketingChecked,
+          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
+          smsMarketingConsentAt: smsMarketingAt,
+          smsTransactionalConsentChecked: smsTransactionalChecked,
+          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsTransactionalConsentAt: smsTransactionalAt || new Date().toISOString(),
+          termsConsentChecked: true,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: null,
+          termsConsentAt: new Date().toISOString(),
         },
         car: {
           ...carData,
@@ -348,40 +365,64 @@ export default function TradeOfferPopup({
               </button>
             </div>
 
-            <div className="trade-offer-consent">
-              <p className="trade-offer-consent-copy">
-                {SMS_CONSENT_DISCLOSURE} See our{" "}
+            <div className="trade-offer-consent" style={{ marginTop: 16 }}>
+              <div className="sms-consent-row" onClick={() => {
+                const newVal = !smsMarketingChecked;
+                setSmsMarketingChecked(newVal);
+                setSmsMarketingAt(newVal ? new Date().toISOString() : null);
+              }}>
+                <input
+                  type="checkbox"
+                  className="sms-consent-checkbox"
+                  checked={smsMarketingChecked}
+                  onChange={(e) => {
+                    setSmsMarketingChecked(e.target.checked);
+                    setSmsMarketingAt(e.target.checked ? new Date().toISOString() : null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="sms-consent-copy" style={{ fontSize: 12, color: "#4b5563" }}>
+                  {SMS_MARKETING_CONSENT_DISCLOSURE}
+                </span>
+              </div>
+
+              <div className="sms-consent-row" style={{ marginTop: 12 }} onClick={() => {
+                const newVal = !smsTransactionalChecked;
+                setSmsTransactionalChecked(newVal);
+                setSmsTransactionalAt(newVal ? new Date().toISOString() : null);
+              }}>
+                <input
+                  type="checkbox"
+                  className="sms-consent-checkbox"
+                  checked={smsTransactionalChecked}
+                  onChange={(e) => {
+                    setSmsTransactionalChecked(e.target.checked);
+                    setSmsTransactionalAt(e.target.checked ? new Date().toISOString() : null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="sms-consent-copy" style={{ fontSize: 12, color: "#4b5563" }}>
+                  {SMS_TRANSACTIONAL_CONSENT_DISCLOSURE}
+                </span>
+              </div>
+
+              <div className="sms-consent-terms" style={{ marginLeft: 26, marginTop: 10, fontSize: 12 }}>
                 <a
                   href={PRIVACY_POLICY_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  style={{ color: "var(--brand-color)", fontWeight: 600, textDecoration: "underline" }}
                 >
                   Privacy Policy
-                </a>{" "}
-                and{" "}
+                </a>
+                {" "}and{" "}
                 <a
                   href={TERMS_OF_USE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
+                  style={{ color: "var(--brand-color)", fontWeight: 600, textDecoration: "underline" }}
                 >
-                  Terms of Use
-                </a>
-                .
-              </p>
-              <div className="trade-offer-terms-links">
-                <a
-                  href={TERMS_OF_USE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Show Terms & Conditions
-                </a>
-                <a
-                  href={PRIVACY_POLICY_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Privacy Policy
+                  Terms of Service
                 </a>
               </div>
             </div>

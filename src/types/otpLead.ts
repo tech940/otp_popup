@@ -13,6 +13,12 @@ export interface OtpLeadRow {
   sms_consent_checked?: boolean;
   sms_consent_text?: string | null;
   sms_consent_at?: string | null;
+  sms_marketing_consent_checked?: boolean;
+  sms_marketing_consent_text?: string | null;
+  sms_marketing_consent_at?: string | null;
+  sms_transactional_consent_checked?: boolean;
+  sms_transactional_consent_text?: string | null;
+  sms_transactional_consent_at?: string | null;
   terms_consent_checked?: boolean;
   terms_consent_text?: string | null;
   terms_consent_at?: string | null;

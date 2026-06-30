@@ -99,6 +99,7 @@
     if (o1 && o1.parentNode) o1.parentNode.removeChild(o1);
     var o2 = document.getElementById('otp-vdp-popup');
     if (o2 && o2.parentNode) o2.parentNode.removeChild(o2);
+    document.body.style.overflow = '';
     window.__amFordUnlockPopupOpen = false;
     try {
       if (typeof window.__otpScrollY === 'number') {
