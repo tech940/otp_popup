@@ -19,6 +19,11 @@ body::-webkit-scrollbar {
   display: none;
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
 
 :root {
   --brand-color: #05214F;
@@ -30,6 +35,7 @@ body::-webkit-scrollbar {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 100dvh;
   background: none;
   z-index: 99999;
   font-family: 'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -48,7 +54,7 @@ body::-webkit-scrollbar {
   width: 100%;
   max-width: 900px;
   overflow: hidden;
-  max-height: 90vh;
+  max-height: min(90vh, calc(100dvh - 32px));
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -173,7 +179,7 @@ body::-webkit-scrollbar {
     padding: 32px 20px !important;
   }
   .otp-card {
-    max-height: 95vh;
+    max-height: min(95vh, calc(100dvh - 32px));
     max-width: 95vw;
     border-radius: 16px;
   }
@@ -192,7 +198,7 @@ body::-webkit-scrollbar {
 @media (max-width: 480px) {
   .otp-card {
     max-width: 100vw;
-    max-height: 100vh;
+    max-height: min(100vh, calc(100dvh - 16px));
     border-radius: 0;
   }
   .otp-sidebar {
@@ -279,20 +285,31 @@ body::-webkit-scrollbar {
 }
 
 .offer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding-top: calc(10px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   padding-left: calc(10px + env(safe-area-inset-left, 0px));
   padding-right: calc(10px + env(safe-area-inset-right, 0px));
   background: transparent;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: 'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 .offer-popup {
-  max-height: 98vh;
+  width: 100%;
+  max-height: min(98vh, calc(100dvh - 20px));
   overflow-x: hidden;
   overflow-y: auto;
   box-shadow: none;
+  margin: auto;
 }
 
 .offer-close {
@@ -592,10 +609,10 @@ body::-webkit-scrollbar {
   inset: 0;
   z-index: 99999;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding: 18px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
@@ -603,20 +620,21 @@ body::-webkit-scrollbar {
   padding-right: calc(18px + env(safe-area-inset-right, 0px));
   background: transparent;
   font-family: 'Metropolis', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .trade-offer-shell {
   position: relative;
   width: 100%;
   max-width: 720px;
-  margin: 56px auto 0;
+  margin: auto;
   background: #ffffff;
   color: #111111;
   border-radius: 0;
   overflow-x: hidden;
   overflow-y: hidden;
-  max-height: calc(100vh - 96px);
+  max-height: min(calc(100vh - 36px), calc(100dvh - 36px));
   box-shadow: none;
 }
 
@@ -894,8 +912,7 @@ body::-webkit-scrollbar {
 @media (max-width: 900px) {
   .trade-offer-shell {
     max-width: 640px;
-    max-height: calc(100vh - 96px);
-    margin-top: 56px;
+    max-height: min(calc(100vh - 36px), calc(100dvh - 36px));
   }
 
   .trade-offer-hero {
@@ -956,8 +973,7 @@ body::-webkit-scrollbar {
 
   .trade-offer-shell {
     max-width: 100%;
-    max-height: calc(100vh - 84px);
-    margin-top: 52px;
+    max-height: min(calc(100vh - 28px), calc(100dvh - 28px));
     border-radius: 0;
   }
 
