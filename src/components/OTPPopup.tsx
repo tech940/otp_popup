@@ -241,10 +241,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   const [resendTimer, setResendTimer] = useState(0);
   const [devMode, setDevMode] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [smsMarketingChecked, setSmsMarketingChecked] = useState(false);
-  const [smsMarketingAt, setSmsMarketingAt] = useState<string | null>(null);
-  const [smsTransactionalChecked, setSmsTransactionalChecked] = useState(false);
-  const [smsTransactionalAt, setSmsTransactionalAt] = useState<string | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -336,12 +332,6 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     if (!firstName.trim()) errors.push("firstName");
     if (phone.length < 12) errors.push("phone");
 
-    // Validation for Transactional SMS consent
-    if (!smsTransactionalChecked) {
-      setError("Please agree to receive transactional/2FA messages to continue.");
-      return;
-    }
-
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.push("email");
     }
@@ -370,15 +360,15 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           preferredContact,
           comments,
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked: smsTransactionalChecked,
-          smsConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-          smsConsentAt: smsTransactionalAt || new Date().toISOString(),
-          smsMarketingConsentChecked: smsMarketingChecked,
+          smsConsentChecked: true,
+          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentAt: new Date().toISOString(),
+          smsMarketingConsentChecked: true,
           smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
-          smsMarketingConsentAt: smsMarketingAt,
-          smsTransactionalConsentChecked: smsTransactionalChecked,
+          smsMarketingConsentAt: new Date().toISOString(),
+          smsTransactionalConsentChecked: true,
           smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-          smsTransactionalConsentAt: smsTransactionalAt || new Date().toISOString(),
+          smsTransactionalConsentAt: new Date().toISOString(),
           termsConsentChecked: true,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
           termsConsentAt: new Date().toISOString(),
@@ -441,15 +431,15 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           preferredContact,
           comments,
           verifiedAt: new Date().toISOString(),
-          smsConsentChecked: smsTransactionalChecked,
-          smsConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-          smsConsentAt: smsTransactionalAt || new Date().toISOString(),
-          smsMarketingConsentChecked: smsMarketingChecked,
+          smsConsentChecked: true,
+          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentAt: new Date().toISOString(),
+          smsMarketingConsentChecked: true,
           smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
-          smsMarketingConsentAt: smsMarketingAt,
-          smsTransactionalConsentChecked: smsTransactionalChecked,
+          smsMarketingConsentAt: new Date().toISOString(),
+          smsTransactionalConsentChecked: true,
           smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-          smsTransactionalConsentAt: smsTransactionalAt || new Date().toISOString(),
+          smsTransactionalConsentAt: new Date().toISOString(),
           termsConsentChecked: true,
           termsConsentText: TERMS_CONSENT_DISCLOSURE,
           termsConsentAt: new Date().toISOString(),
@@ -672,63 +662,16 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
               )}
 
               <div className="sms-consent-group">
-                <div className="sms-consent-row" onClick={() => {
-                  const newVal = !smsMarketingChecked;
-                  setSmsMarketingChecked(newVal);
-                  setSmsMarketingAt(newVal ? new Date().toISOString() : null);
-                }}>
-                  <input
-                    type="checkbox"
-                    className="sms-consent-checkbox"
-                    checked={smsMarketingChecked}
-                    onChange={(e) => {
-                      setSmsMarketingChecked(e.target.checked);
-                      setSmsMarketingAt(e.target.checked ? new Date().toISOString() : null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span className="sms-consent-copy">
-                    {SMS_MARKETING_CONSENT_DISCLOSURE}
-                  </span>
-                </div>
-
-                <div className="sms-consent-row" style={{ marginTop: 12 }} onClick={() => {
-                  const newVal = !smsTransactionalChecked;
-                  setSmsTransactionalChecked(newVal);
-                  setSmsTransactionalAt(newVal ? new Date().toISOString() : null);
-                }}>
-                  <input
-                    type="checkbox"
-                    className="sms-consent-checkbox"
-                    checked={smsTransactionalChecked}
-                    onChange={(e) => {
-                      setSmsTransactionalChecked(e.target.checked);
-                      setSmsTransactionalAt(e.target.checked ? new Date().toISOString() : null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span className="sms-consent-copy">
-                    {SMS_TRANSACTIONAL_CONSENT_DISCLOSURE}
-                  </span>
-                </div>
-
-                <div className="sms-consent-terms" style={{ marginLeft: 26, marginTop: 10 }}>
-                  <a
-                    href={PRIVACY_POLICY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Privacy Policy
-                  </a>
-                  {" "}and{" "}
+                <p className="sms-consent-copy" style={{ textAlign: "center", color: "#6b7280" }}>
+                  By submitting, you agree that AM FORD Ashtabula may contact you. Message/data rates may apply.{" "}
                   <a
                     href={TERMS_OF_USE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Terms of Service
+                    Terms of use
                   </a>
-                </div>
+                </p>
               </div>
 
               <button
