@@ -1,5 +1,5 @@
 (function () {
-  var POPUP_ORIGIN = 'https://am-ford-otp-popup.vercel.app/';
+  var POPUP_ORIGIN = 'https://www.amfordofjefferson.com/';
   var VINS_STORAGE_KEY = 'otp_popup_unlocked_vins_v1';
   var GLOBAL_VERIFY_KEY = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
