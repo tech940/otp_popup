@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { trackAscFormEngagement, trackAscFormSubmission } from "@/lib/ascEvents";
 import {
   PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
@@ -25,6 +26,12 @@ interface OfferPopupProps {
   pageSource?: string;
   initialCarData?: CarData | null;
 }
+
+/** ASC form identity for this popup. It opens on a timer, so `asc_form_engagment`
+ *  fires on the user's first interaction with a field instead of an opening click. */
+const ASC_FORM_NAME = "AM Ford - $500 Off Offer";
+const ASC_FORM_TYPE = "offer";
+const ASC_SUBMIT_LABEL = "CLAIM MY $500 OFF";
 
 function buildSourceLabel(pageSource: string): string {
   if (!pageSource) return "500 off Popup";
@@ -87,10 +94,30 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
+  const engagementSent = useRef(false);
+
+  /* Scoped to real fields: React's onFocus is backed by the bubbling `focusin`, so an
+     unscoped handler on the <form> would also count clicks on the consent link and any
+     button inside it as form engagement. */
+  const handleFormEngagement = (e?: React.FocusEvent<HTMLFormElement>) => {
+    if (e && !(e.target instanceof HTMLElement && e.target.matches("input, select, textarea"))) {
+      return;
+    }
+    if (engagementSent.current) return;
+    engagementSent.current = true;
+    trackAscFormEngagement({
+      formName: ASC_FORM_NAME,
+      formType: ASC_FORM_TYPE,
+      pageSource,
+      car: carData,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
+    handleFormEngagement();
 
     try {
       const payload = {
@@ -130,6 +157,15 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Submission failed");
+
+      trackAscFormSubmission({
+        formName: ASC_FORM_NAME,
+        formType: ASC_FORM_TYPE,
+        pageSource,
+        car: carData,
+        elementText: ASC_SUBMIT_LABEL,
+        submissionId: data?.saveStatus?.leadId ?? null,
+      });
 
       setSubmitted(true);
       onSubmitted?.();
@@ -248,7 +284,7 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
         {/* BODY */}
         <div className="offer-body">
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} onFocus={handleFormEngagement}>
             <div className="form-grid">
 
               <div className="field">

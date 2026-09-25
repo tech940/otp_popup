@@ -1,9 +1,286 @@
 <script>
 (function () {
   var POPUP_ORIGIN = 'https://www.amfordofjefferson.com/';
+  try {
+    if (!document.querySelector('link[rel="preconnect"][href="' + POPUP_ORIGIN + '"]')) {
+      var _p1 = document.createElement('link'); _p1.rel = 'preconnect'; _p1.href = POPUP_ORIGIN; document.head.appendChild(_p1);
+      var _p2 = document.createElement('link'); _p2.rel = 'dns-prefetch'; _p2.href = POPUP_ORIGIN; document.head.appendChild(_p2);
+    }
+  } catch (e) {}
   var VINS_STORAGE_KEY = 'otp_popup_unlocked_vins_v1';
   var GLOBAL_VERIFY_KEY = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
+
+  /* ─────────────────────────────────────────────
+     ASC EVENTS  (Automotive Standards Council)
+     asc_form_engagment        → user clicks the CTA that opens the form
+     asc_form_submission       → relayed from the popup iframe on submit
+     asc_form_submission_sales → relayed from the popup iframe on submit
+     Spec: https://docs.google.com/spreadsheets/d/16i1x19MK3yCRXMivGa2WcyOhxlmGgkb9GbE2vAJuJ74
+  ───────────────────────────────────────────── */
+  var ASC_EVENT_OWNER = 'am_group';              /* not on the ASC vendor list — swap if a registered value is required */
+  var ASC_AFFILIATION = 'am_ford_of_jefferson';
+  var ASC_DEPARTMENT  = 'sales';
+
+  /* Only these three event names are ever pushed — a relayed message can never name
+     its own GTM event. */
+  var ASC_ALLOWED_EVENTS = ['asc_form_engagment', 'asc_form_submission', 'asc_form_submission_sales'];
+
+  /* Every ASC key these events can carry. The full set is pushed on every event so a key
+     never carries over: GTM merges each push into one persistent data model, so a key that
+     is simply omitted keeps whatever the previous event set — which would attach the last
+     vehicle a visitor viewed to an unrelated later lead.
+     Keep in sync with ASC_PARAM_KEYS in src/lib/ascEvents.ts. */
+  var ASC_PARAM_KEYS = ['event_owner', 'affiliation', 'department', 'page_type', 'page_location',
+    'comm_type', 'comm_status', 'form_name', 'form_type', 'element_type', 'element_subtype',
+    'element_text', 'element_position', 'event_action', 'event_action_result', 'submission_id',
+    'flow_name', 'flow_outcome', 'item_id', 'item_number', 'item_year', 'item_make', 'item_model',
+    'item_variant', 'item_color', 'item_type', 'item_fuel_type', 'item_condition', 'item_price',
+    'currency'];
+
+  function ascClean(params) {
+    var out = {};
+    for (var k in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+      var v = params[k];
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'number') { out[k] = v; continue; }
+      var s = String(v).replace(/^\s+|\s+$/g, '');
+      if (s === '') continue;
+      out[k] = s;
+    }
+    return out;
+  }
+
+  function ascPush(eventName, params) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      var clean = ascClean(params || {});
+      var payload = { event: eventName };
+      for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+        var key = ASC_PARAM_KEYS[i];
+        payload[key] = Object.prototype.hasOwnProperty.call(clean, key) ? clean[key] : undefined;
+      }
+      window.dataLayer.push(payload);
+    } catch (e) {}
+  }
+
+  function ascPageTypeValue() {
+    var path = (window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/inventory/') !== -1) return 'item';
+    if (path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1) return 'itemlist';
+    if (path === '/' || path === '' || path.slice(-5) === '/home' || path.slice(-6) === '/home/') return 'home';
+    return 'unknown';
+  }
+
+  /* Relay ASC events posted by the popup iframe into this page's dataLayer. Only known
+     event names and known parameter keys are copied across, so a message can neither name
+     its own GTM event nor introduce a key of its own. */
+  function ascRelay(d) {
+    if (!d || typeof d !== 'object' || d.type !== 'ASC_EVENT') return false;
+    if (ASC_ALLOWED_EVENTS.indexOf(d.event) === -1) return false;
+    var src = (d.params && typeof d.params === 'object') ? d.params : {};
+    var params = {};
+    for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+      var key = ASC_PARAM_KEYS[i];
+      if (Object.prototype.hasOwnProperty.call(src, key)) params[key] = src[key];
+    }
+    /* The parent page is authoritative for page context. */
+    params.page_location = window.location.href;
+    params.page_type = ascPageTypeValue();
+    ascPush(d.event, params);
+    return true;
+  }
+
+  /* Exact-origin match only. A substring test such as indexOf('vercel.app') would trust
+     any host containing that text — including free *.vercel.app sites and lookalikes such
+     as vercel.app.example.com. localhost is honoured only when this page is itself served
+     from localhost, i.e. during local development. */
+  function ascTrustedOrigin(origin) {
+    var o = String(origin || '').replace(/\/$/, '');
+    if (!o) return false;
+    if (o === String(POPUP_ORIGIN || '').replace(/\/$/, '')) return true;
+    if (o === window.location.origin) return true;
+    var LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+    return LOCAL.test(o) && LOCAL.test(window.location.origin);
+  }
+
+  /* Bound once per page — every embed on the site shares this guard, so a single submit
+     never lands in the dataLayer more than once. */
+  if (!window.__ascEventRelayBound) {
+    window.__ascEventRelayBound = true;
+    window.addEventListener('message', function (ev) {
+      if (!ascTrustedOrigin(ev.origin)) return;
+      ascRelay(ev.data);
+    });
+  }
+
+  var ASC_FORM_NAME = 'AM Ford - Unlock Instant Price';
+  var ASC_FORM_TYPE = 'quote';
+
+  /* Ford model names, longest match wins, so "Mustang Mach-E" is not read as model
+     "Mustang" trim "Mach-E". Keep in sync with ASC_MODELS in src/lib/ascEvents.ts. */
+  var ASC_MODELS = ['Super Duty F-250', 'Super Duty F-350', 'Super Duty F-450', 'Super Duty F-550',
+    'F-150 Lightning', 'Mustang Mach-E', 'Transit Connect', 'Expedition Max', 'Bronco Sport',
+    'Crown Victoria', 'Grand Marquis', 'Five Hundred', 'E-Transit', 'EcoSport', 'Excursion',
+    'Expedition', 'Explorer', 'Freestyle', 'Maverick', 'Mustang', 'Bronco', 'Escape', 'Transit',
+    'Ranger', 'Taurus', 'Fiesta', 'Fusion', 'C-Max', 'Focus', 'Flex', 'Edge', 'F-150', 'F-250',
+    'F-350', 'F-450', 'F-550', 'F-600', 'GT'];
+
+  function ascSlug(v) {
+    return String(v == null ? '' : v).replace(/^\s+|\s+$/g, '').toLowerCase().replace(/\s+/g, '_');
+  }
+
+  function ascWholeNumber(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[^\d.]/g, ''));
+    if (!isFinite(n) || n <= 0) return '';
+    return String(Math.round(n));
+  }
+
+  function ascPick(obj, keys) {
+    if (!obj) return '';
+    for (var i = 0; i < keys.length; i++) {
+      var v = obj[keys[i]];
+      if (v !== null && v !== undefined && String(v).replace(/^\s+|\s+$/g, '') !== '') {
+        return String(v).replace(/^\s+|\s+$/g, '');
+      }
+    }
+    return '';
+  }
+
+  /* Drop the spec tail dealers append to OEM titles ("5.5 ft. box 145 in. WB"). */
+  function ascTrimUpToSpecs(raw) {
+    var tokens = String(raw || '').split(/\s+/);
+    var out = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var tok = tokens[i];
+      if (!tok) continue;
+      if (/^\d/.test(tok)) break;
+      if (/^(ft\.?|in\.?|wb|box)$/i.test(tok)) break;
+      out.push(tok);
+      if (out.length >= 4) break;
+    }
+    return out.join(' ');
+  }
+
+  /* Split "2024 Ford F-150 XLT". Model and trim are only separated on a known model name,
+     never positionally — a positional split reads "2023 Ford F-250 King Ranch" as model
+     "F-250 King" trim "Ranch". An unrecognised model (a non-Ford trade-in) becomes the whole
+     remainder with no trim reported, rather than an invented one. */
+  function ascSplitHeading(heading) {
+    var out = { year: '', make: '', model: '', trim: '' };
+    var text = String(heading || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+    var m = text.match(/(?:Certified Pre-Owned\s+)?(\d{4})\s+([A-Za-z-]+)\s+(.+)/i);
+    if (!m) return out;
+    out.year = m[1] || '';
+    out.make = m[2] || '';
+    var rest = (m[3] || '').replace(/^\s+|\s+$/g, '');
+    if (!rest) return out;
+
+    var lower = rest.toLowerCase();
+    var matched = '';
+    for (var i = 0; i < ASC_MODELS.length; i++) {
+      var ml = ASC_MODELS[i].toLowerCase();
+      if ((lower === ml || lower.indexOf(ml + ' ') === 0) && ASC_MODELS[i].length > matched.length) {
+        matched = ASC_MODELS[i];
+      }
+    }
+    if (matched) {
+      out.model = rest.slice(0, matched.length);
+      out.trim = ascTrimUpToSpecs(rest.slice(matched.length).replace(/^\s+/, ''));
+    } else {
+      out.model = rest;
+    }
+    return out;
+  }
+
+  function ascItemCondition(raw) {
+    var t = ascSlug(raw);
+    if (t) {
+      if (t.indexOf('certified') !== -1 || t === 'cpo') return 'cpo';
+      if (t.indexOf('new') !== -1) return 'new';
+      if (t.indexOf('used') !== -1 || t.indexOf('pre-owned') !== -1 || t.indexOf('pre_owned') !== -1) return 'used';
+    }
+    var url = (window.location.href || '').toLowerCase();
+    if (url.indexOf('/new-vehicles') !== -1) return 'new';
+    if (url.indexOf('/used-vehicles') !== -1) return 'used';
+    return 'unknown';
+  }
+
+  /* item_* parameters from the vehicle context already parsed for the popup. */
+  function ascVehicleParams(ctx) {
+    var c  = ctx || {};
+    var vd = c.vehicleData || {};
+    /* A snapshot built by this script carries a heading and derives model/trim from it;
+       a Dealer Inspire data-vehicle blob carries the real fields. Only the latter's
+       model/trim are authoritative. */
+    var heading = ascPick(vd, ['vehicle_heading', 'listing_title']) || c.vehicle || '';
+    var headingDerived = ascPick(vd, ['vehicle_heading', 'listing_title']) !== '';
+    var parsed = ascSplitHeading(heading);
+    var structuredModel = ascPick(vd, ['model']);
+    var structuredTrim  = ascPick(vd, ['trim']);
+
+    var itemId     = String(c.vin || ascPick(vd, ['vin'])).toUpperCase();
+    var itemNumber = c.stock || ascPick(vd, ['stock', 'stock_number', 'stockNumber']);
+    var itemYear   = ascPick(vd, ['year']) || parsed.year;
+    var itemMake   = ascPick(vd, ['make']) || parsed.make;
+    var itemModel  = headingDerived ? (parsed.model || structuredModel) : (structuredModel || parsed.model);
+    var itemTrim   = headingDerived ? parsed.trim : (structuredTrim || parsed.trim);
+    var price      = ascWholeNumber(c.price || ascPick(vd, ['price', 'msrp']));
+
+    /* No vehicle in context — send no item_* at all rather than a lone `unknown`. */
+    if (!itemId && !itemNumber && !itemYear && !itemMake && !itemModel) return {};
+
+    return {
+      item_id:        itemId,
+      item_number:    itemNumber,
+      item_year:      itemYear,
+      item_make:      itemMake,
+      item_model:     itemModel,
+      item_variant:   itemTrim,
+      item_color:     ascPick(vd, ['ext_color', 'exteriorColor', 'exterior_color', 'extColor', 'color']),
+      item_type:      ascPick(vd, ['bodystyle', 'body_style', 'bodyStyle', 'body', 'style']),
+      item_fuel_type: ascSlug(ascPick(vd, ['fueltype', 'fuel_type', 'fuelType', 'fuel'])),
+      item_condition: ascItemCondition(ascPick(vd, ['condition', 'vehicle_condition', 'type', 'status'])),
+      item_price:     price,
+      currency:       price ? 'USD' : ''
+    };
+  }
+
+  /* The CTA that opens the form differs by entry point (injected button, teaser image, or
+     a rebound dealer price button), so the click handler records which one it was and the
+     opener reports it. */
+  var ascPendingTrigger = null;
+  function ascSetTrigger(text, subtype) {
+    ascPendingTrigger = { elementText: text, elementSubtype: subtype };
+  }
+  function ascTakeTrigger() {
+    var t = ascPendingTrigger;
+    ascPendingTrigger = null;
+    return t || {};
+  }
+
+  /* Fired when the user clicks the CTA that opens the Unlock Instant Price form. */
+  function ascFormEngagement(ctx, elementType) {
+    var trigger = ascTakeTrigger();
+    var params = ascVehicleParams(ctx);
+    params.event_owner         = ASC_EVENT_OWNER;
+    params.affiliation         = ASC_AFFILIATION;
+    params.department          = ASC_DEPARTMENT;
+    params.page_type           = ascPageTypeValue();
+    params.page_location       = window.location.href;
+    params.comm_type           = 'form';
+    params.comm_status         = 'start';
+    params.form_name           = ASC_FORM_NAME;
+    params.form_type           = ASC_FORM_TYPE;
+    params.event_action        = 'click';
+    params.event_action_result = 'popup';
+    params.element_type        = elementType || 'body';
+    params.element_subtype     = trigger.elementSubtype || 'cta_button';
+    params.element_text        = trigger.elementText || 'Unlock Instant Price';
+    params.element_position    = 'inline';
+    ascPush('asc_form_engagment', params);
+  }
 
   function getUnlockedKeys() {
     try { 
@@ -254,6 +531,7 @@
       '100%{transform:scale(1);}' +
       '}' +
       '@keyframes otpFogSweep{0%{left:-100%;}50%{left:120%;}100%{left:120%;}}' +
+      '@keyframes otpSpin{0%{transform:translate(-50%,-50%) rotate(0deg);}100%{transform:translate(-50%,-50%) rotate(360deg);}}' +
       '.otp-unlock-ip-btn:hover{filter:brightness(1.1);}' +
       '.otp-unlock-ip-btn:active{transform:scale(0.97);}' +
       /* Hide entire wrapper once revealed */
@@ -403,6 +681,9 @@
     }
     try { window.__otpLastUnlockCtx = { vin: ctx.vin || '', stock: ctx.stock || '' }; } catch (e) {}
 
+    /* ASC: the click that brings up the lead form */
+    ascFormEngagement(ctx, pageType === 'VDP' ? 'item_details' : 'body');
+
     var overlay = document.createElement('div');
     overlay.id = 'custom-price-popup';
     overlay.style.cssText =
@@ -414,17 +695,25 @@
     var box = document.createElement('div');
     box.style.cssText = 'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
 
+    var loader = document.createElement('div');
+    loader.style.cssText =
+      'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'width:38px;height:38px;border:3px solid rgba(255,255,255,0.25);' +
+      'border-top-color:#ffffff;border-radius:50%;z-index:1;' +
+      'animation:otpSpin 0.75s linear infinite;pointer-events:none;';
+
     var iframe = document.createElement('iframe');
     iframe.src = POPUP_ORIGIN + '/?vin=' + encodeURIComponent(ctx.vin) +
       '&stock=' + encodeURIComponent(ctx.stock) +
       '&price=' + encodeURIComponent(ctx.price) +
       '&vehicle=' + encodeURIComponent(ctx.vehicle) +
       '&page_url=' + encodeURIComponent(pageUrl) +
-      '&source=' + encodeURIComponent(sourceLabel) +
-      '&_=' + Date.now();
-    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
+      '&source=' + encodeURIComponent(sourceLabel);
+    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;opacity:0;transition:opacity 0.2s ease;';
 
     iframe.addEventListener('load', function () {
+      if (loader.parentNode) loader.parentNode.removeChild(loader);
+      iframe.style.opacity = '1';
       postMainIframeContext(iframe, pageUrl, sourceLabel, ctx, root);
       setTimeout(function () { postMainIframeContext(iframe, pageUrl, sourceLabel, ctx, root); }, 250);
       setTimeout(function () { postMainIframeContext(iframe, pageUrl, sourceLabel, ctx, root); }, 800);
@@ -439,6 +728,7 @@
     });
 
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) removePopupOverlay(); });
+    box.appendChild(loader);
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -549,6 +839,14 @@
         revealCard(wrap);
         return;
       }
+      /* ASC: record which control was clicked so the engagement event reports it */
+      var ascTgt = ev.currentTarget || ev.target;
+      var ascCls = ascTgt && ascTgt.className ? String(ascTgt.className) : '';
+      if (ascCls.indexOf('otp-teaser-host') !== -1 || ascCls.indexOf('otp-vdp-teaser-host') !== -1) {
+        ascSetTrigger('Want a lower price? Start here.', 'image');
+      } else {
+        ascSetTrigger('Unlock Instant Price', 'cta_button');
+      }
       openOtpPopupFromRoot(wrap);
     }
 
@@ -634,6 +932,8 @@
           e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return;
         }
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+        /* ASC: report the dealer's own CTA label, not ours */
+        ascSetTrigger(((e.currentTarget && e.currentTarget.textContent) || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, ''), 'cta_button');
         openOtpPopupFromRoot(root);
       }, true);
     }
@@ -726,10 +1026,287 @@
   /* ─────────────────────────────────────────────
      CONFIG
   ───────────────────────────────────────────── */
-  var POPUP_ORIGIN         = 'https://am-ford-otp-popup.vercel.app/';
+  var POPUP_ORIGIN         = 'https://www.amfordofjefferson.com/';
+  try {
+    if (!document.querySelector('link[rel="preconnect"][href="' + POPUP_ORIGIN + '"]')) {
+      var _vp1 = document.createElement('link'); _vp1.rel = 'preconnect'; _vp1.href = POPUP_ORIGIN; document.head.appendChild(_vp1);
+      var _vp2 = document.createElement('link'); _vp2.rel = 'dns-prefetch'; _vp2.href = POPUP_ORIGIN; document.head.appendChild(_vp2);
+    }
+  } catch (e) {}
   var VINS_STORAGE_KEY     = 'otp_popup_unlocked_vins_v1';
   var GLOBAL_VERIFY_KEY    = 'otp_popup_user_verified_v1';
   var PRICE_TEASER_IMAGE_URL = 'https://www.irwinzone.com/static/dealer-5520/start_lower_price_here_green.png';
+
+  /* ─────────────────────────────────────────────
+     ASC EVENTS  (Automotive Standards Council)
+     asc_form_engagment        → user clicks the CTA that opens the form
+     asc_form_submission       → relayed from the popup iframe on submit
+     asc_form_submission_sales → relayed from the popup iframe on submit
+     Spec: https://docs.google.com/spreadsheets/d/16i1x19MK3yCRXMivGa2WcyOhxlmGgkb9GbE2vAJuJ74
+  ───────────────────────────────────────────── */
+  var ASC_EVENT_OWNER = 'am_group';              /* not on the ASC vendor list — swap if a registered value is required */
+  var ASC_AFFILIATION = 'am_ford_of_jefferson';
+  var ASC_DEPARTMENT  = 'sales';
+
+  /* Only these three event names are ever pushed — a relayed message can never name
+     its own GTM event. */
+  var ASC_ALLOWED_EVENTS = ['asc_form_engagment', 'asc_form_submission', 'asc_form_submission_sales'];
+
+  /* Every ASC key these events can carry. The full set is pushed on every event so a key
+     never carries over: GTM merges each push into one persistent data model, so a key that
+     is simply omitted keeps whatever the previous event set — which would attach the last
+     vehicle a visitor viewed to an unrelated later lead.
+     Keep in sync with ASC_PARAM_KEYS in src/lib/ascEvents.ts. */
+  var ASC_PARAM_KEYS = ['event_owner', 'affiliation', 'department', 'page_type', 'page_location',
+    'comm_type', 'comm_status', 'form_name', 'form_type', 'element_type', 'element_subtype',
+    'element_text', 'element_position', 'event_action', 'event_action_result', 'submission_id',
+    'flow_name', 'flow_outcome', 'item_id', 'item_number', 'item_year', 'item_make', 'item_model',
+    'item_variant', 'item_color', 'item_type', 'item_fuel_type', 'item_condition', 'item_price',
+    'currency'];
+
+  function ascClean(params) {
+    var out = {};
+    for (var k in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+      var v = params[k];
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'number') { out[k] = v; continue; }
+      var s = String(v).replace(/^\s+|\s+$/g, '');
+      if (s === '') continue;
+      out[k] = s;
+    }
+    return out;
+  }
+
+  function ascPush(eventName, params) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      var clean = ascClean(params || {});
+      var payload = { event: eventName };
+      for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+        var key = ASC_PARAM_KEYS[i];
+        payload[key] = Object.prototype.hasOwnProperty.call(clean, key) ? clean[key] : undefined;
+      }
+      window.dataLayer.push(payload);
+    } catch (e) {}
+  }
+
+  function ascPageTypeValue() {
+    var path = (window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/inventory/') !== -1) return 'item';
+    if (path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1) return 'itemlist';
+    if (path === '/' || path === '' || path.slice(-5) === '/home' || path.slice(-6) === '/home/') return 'home';
+    return 'unknown';
+  }
+
+  /* Relay ASC events posted by the popup iframe into this page's dataLayer. Only known
+     event names and known parameter keys are copied across, so a message can neither name
+     its own GTM event nor introduce a key of its own. */
+  function ascRelay(d) {
+    if (!d || typeof d !== 'object' || d.type !== 'ASC_EVENT') return false;
+    if (ASC_ALLOWED_EVENTS.indexOf(d.event) === -1) return false;
+    var src = (d.params && typeof d.params === 'object') ? d.params : {};
+    var params = {};
+    for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+      var key = ASC_PARAM_KEYS[i];
+      if (Object.prototype.hasOwnProperty.call(src, key)) params[key] = src[key];
+    }
+    /* The parent page is authoritative for page context. */
+    params.page_location = window.location.href;
+    params.page_type = ascPageTypeValue();
+    ascPush(d.event, params);
+    return true;
+  }
+
+  /* Exact-origin match only. A substring test such as indexOf('vercel.app') would trust
+     any host containing that text — including free *.vercel.app sites and lookalikes such
+     as vercel.app.example.com. localhost is honoured only when this page is itself served
+     from localhost, i.e. during local development. */
+  function ascTrustedOrigin(origin) {
+    var o = String(origin || '').replace(/\/$/, '');
+    if (!o) return false;
+    if (o === String(POPUP_ORIGIN || '').replace(/\/$/, '')) return true;
+    if (o === window.location.origin) return true;
+    var LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+    return LOCAL.test(o) && LOCAL.test(window.location.origin);
+  }
+
+  /* Bound once per page — every embed on the site shares this guard, so a single submit
+     never lands in the dataLayer more than once. */
+  if (!window.__ascEventRelayBound) {
+    window.__ascEventRelayBound = true;
+    window.addEventListener('message', function (ev) {
+      if (!ascTrustedOrigin(ev.origin)) return;
+      ascRelay(ev.data);
+    });
+  }
+
+  var ASC_FORM_NAME = 'AM Ford - Unlock Instant Price';
+  var ASC_FORM_TYPE = 'quote';
+
+  /* Ford model names, longest match wins, so "Mustang Mach-E" is not read as model
+     "Mustang" trim "Mach-E". Keep in sync with ASC_MODELS in src/lib/ascEvents.ts. */
+  var ASC_MODELS = ['Super Duty F-250', 'Super Duty F-350', 'Super Duty F-450', 'Super Duty F-550',
+    'F-150 Lightning', 'Mustang Mach-E', 'Transit Connect', 'Expedition Max', 'Bronco Sport',
+    'Crown Victoria', 'Grand Marquis', 'Five Hundred', 'E-Transit', 'EcoSport', 'Excursion',
+    'Expedition', 'Explorer', 'Freestyle', 'Maverick', 'Mustang', 'Bronco', 'Escape', 'Transit',
+    'Ranger', 'Taurus', 'Fiesta', 'Fusion', 'C-Max', 'Focus', 'Flex', 'Edge', 'F-150', 'F-250',
+    'F-350', 'F-450', 'F-550', 'F-600', 'GT'];
+
+  function ascSlug(v) {
+    return String(v == null ? '' : v).replace(/^\s+|\s+$/g, '').toLowerCase().replace(/\s+/g, '_');
+  }
+
+  function ascWholeNumber(v) {
+    var n = Number(String(v == null ? '' : v).replace(/[^\d.]/g, ''));
+    if (!isFinite(n) || n <= 0) return '';
+    return String(Math.round(n));
+  }
+
+  function ascPick(obj, keys) {
+    if (!obj) return '';
+    for (var i = 0; i < keys.length; i++) {
+      var v = obj[keys[i]];
+      if (v !== null && v !== undefined && String(v).replace(/^\s+|\s+$/g, '') !== '') {
+        return String(v).replace(/^\s+|\s+$/g, '');
+      }
+    }
+    return '';
+  }
+
+  /* Drop the spec tail dealers append to OEM titles ("5.5 ft. box 145 in. WB"). */
+  function ascTrimUpToSpecs(raw) {
+    var tokens = String(raw || '').split(/\s+/);
+    var out = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var tok = tokens[i];
+      if (!tok) continue;
+      if (/^\d/.test(tok)) break;
+      if (/^(ft\.?|in\.?|wb|box)$/i.test(tok)) break;
+      out.push(tok);
+      if (out.length >= 4) break;
+    }
+    return out.join(' ');
+  }
+
+  /* Split "2024 Ford F-150 XLT". Model and trim are only separated on a known model name,
+     never positionally — a positional split reads "2023 Ford F-250 King Ranch" as model
+     "F-250 King" trim "Ranch". An unrecognised model (a non-Ford trade-in) becomes the whole
+     remainder with no trim reported, rather than an invented one. */
+  function ascSplitHeading(heading) {
+    var out = { year: '', make: '', model: '', trim: '' };
+    var text = String(heading || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+    var m = text.match(/(?:Certified Pre-Owned\s+)?(\d{4})\s+([A-Za-z-]+)\s+(.+)/i);
+    if (!m) return out;
+    out.year = m[1] || '';
+    out.make = m[2] || '';
+    var rest = (m[3] || '').replace(/^\s+|\s+$/g, '');
+    if (!rest) return out;
+
+    var lower = rest.toLowerCase();
+    var matched = '';
+    for (var i = 0; i < ASC_MODELS.length; i++) {
+      var ml = ASC_MODELS[i].toLowerCase();
+      if ((lower === ml || lower.indexOf(ml + ' ') === 0) && ASC_MODELS[i].length > matched.length) {
+        matched = ASC_MODELS[i];
+      }
+    }
+    if (matched) {
+      out.model = rest.slice(0, matched.length);
+      out.trim = ascTrimUpToSpecs(rest.slice(matched.length).replace(/^\s+/, ''));
+    } else {
+      out.model = rest;
+    }
+    return out;
+  }
+
+  function ascItemCondition(raw) {
+    var t = ascSlug(raw);
+    if (t) {
+      if (t.indexOf('certified') !== -1 || t === 'cpo') return 'cpo';
+      if (t.indexOf('new') !== -1) return 'new';
+      if (t.indexOf('used') !== -1 || t.indexOf('pre-owned') !== -1 || t.indexOf('pre_owned') !== -1) return 'used';
+    }
+    var url = (window.location.href || '').toLowerCase();
+    if (url.indexOf('/new-vehicles') !== -1) return 'new';
+    if (url.indexOf('/used-vehicles') !== -1) return 'used';
+    return 'unknown';
+  }
+
+  /* item_* parameters from the vehicle context already parsed for the popup. */
+  function ascVehicleParams(ctx) {
+    var c  = ctx || {};
+    var vd = c.vehicleData || {};
+    /* A snapshot built by this script carries a heading and derives model/trim from it;
+       a Dealer Inspire data-vehicle blob carries the real fields. Only the latter's
+       model/trim are authoritative. */
+    var heading = ascPick(vd, ['vehicle_heading', 'listing_title']) || c.vehicle || '';
+    var headingDerived = ascPick(vd, ['vehicle_heading', 'listing_title']) !== '';
+    var parsed = ascSplitHeading(heading);
+    var structuredModel = ascPick(vd, ['model']);
+    var structuredTrim  = ascPick(vd, ['trim']);
+
+    var itemId     = String(c.vin || ascPick(vd, ['vin'])).toUpperCase();
+    var itemNumber = c.stock || ascPick(vd, ['stock', 'stock_number', 'stockNumber']);
+    var itemYear   = ascPick(vd, ['year']) || parsed.year;
+    var itemMake   = ascPick(vd, ['make']) || parsed.make;
+    var itemModel  = headingDerived ? (parsed.model || structuredModel) : (structuredModel || parsed.model);
+    var itemTrim   = headingDerived ? parsed.trim : (structuredTrim || parsed.trim);
+    var price      = ascWholeNumber(c.price || ascPick(vd, ['price', 'msrp']));
+
+    /* No vehicle in context — send no item_* at all rather than a lone `unknown`. */
+    if (!itemId && !itemNumber && !itemYear && !itemMake && !itemModel) return {};
+
+    return {
+      item_id:        itemId,
+      item_number:    itemNumber,
+      item_year:      itemYear,
+      item_make:      itemMake,
+      item_model:     itemModel,
+      item_variant:   itemTrim,
+      item_color:     ascPick(vd, ['ext_color', 'exteriorColor', 'exterior_color', 'extColor', 'color']),
+      item_type:      ascPick(vd, ['bodystyle', 'body_style', 'bodyStyle', 'body', 'style']),
+      item_fuel_type: ascSlug(ascPick(vd, ['fueltype', 'fuel_type', 'fuelType', 'fuel'])),
+      item_condition: ascItemCondition(ascPick(vd, ['condition', 'vehicle_condition', 'type', 'status'])),
+      item_price:     price,
+      currency:       price ? 'USD' : ''
+    };
+  }
+
+  /* The CTA that opens the form differs by entry point (injected button, teaser image, or
+     a rebound dealer price button), so the click handler records which one it was and the
+     opener reports it. */
+  var ascPendingTrigger = null;
+  function ascSetTrigger(text, subtype) {
+    ascPendingTrigger = { elementText: text, elementSubtype: subtype };
+  }
+  function ascTakeTrigger() {
+    var t = ascPendingTrigger;
+    ascPendingTrigger = null;
+    return t || {};
+  }
+
+  /* Fired when the user clicks the CTA that opens the Unlock Instant Price form. */
+  function ascFormEngagement(ctx, elementType) {
+    var trigger = ascTakeTrigger();
+    var params = ascVehicleParams(ctx);
+    params.event_owner         = ASC_EVENT_OWNER;
+    params.affiliation         = ASC_AFFILIATION;
+    params.department          = ASC_DEPARTMENT;
+    params.page_type           = ascPageTypeValue();
+    params.page_location       = window.location.href;
+    params.comm_type           = 'form';
+    params.comm_status         = 'start';
+    params.form_name           = ASC_FORM_NAME;
+    params.form_type           = ASC_FORM_TYPE;
+    params.event_action        = 'click';
+    params.event_action_result = 'popup';
+    params.element_type        = elementType || 'body';
+    params.element_subtype     = trigger.elementSubtype || 'cta_button';
+    params.element_text        = trigger.elementText || 'Unlock Instant Price';
+    params.element_position    = 'inline';
+    ascPush('asc_form_engagment', params);
+  }
 
   function getVdpPopupSourceLabel(pageType) {
     if (pageType === 'VDP') {
@@ -1226,6 +1803,9 @@
     var sourceLabel = getVdpPopupSourceLabel('VDP');
     try { window.__otpLastUnlockCtx = { vin: ctx.vin, stock: ctx.stock }; } catch (e) {}
 
+    /* ASC: the click that brings up the lead form */
+    ascFormEngagement({ vin: ctx.vin, stock: ctx.stock, price: price, vehicleData: snapshot.vehicleData }, 'item_details');
+
     var overlay = document.createElement('div');
     overlay.id = 'otp-vdp-popup';
     overlay.style.cssText =
@@ -1237,6 +1817,13 @@
     var box = document.createElement('div');
     box.style.cssText = 'position:relative;width:100%;max-width:1000px;height:100vh;background:transparent;overflow:hidden;';
 
+    var loader = document.createElement('div');
+    loader.style.cssText =
+      'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'width:38px;height:38px;border:3px solid rgba(255,255,255,0.25);' +
+      'border-top-color:#ffffff;border-radius:50%;z-index:1;' +
+      'animation:otpSpin 0.75s linear infinite;pointer-events:none;';
+
     /* Hero image for the popup */
     var heroImg = snapshot.heroImg;
 
@@ -1247,12 +1834,13 @@
       '&price='      + encodeURIComponent(price) +
       '&vehicle='    + encodeURIComponent(vehicle) +
       '&page_url='   + encodeURIComponent(window.location.href) +
-      '&source='     + encodeURIComponent(sourceLabel) +
-      '&_='          + Date.now();
-    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;';
+      '&source='     + encodeURIComponent(sourceLabel);
+    iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;background:transparent;opacity:0;transition:opacity 0.2s ease;';
 
     iframe.addEventListener('load', function () {
       try {
+        if (loader.parentNode) loader.parentNode.removeChild(loader);
+        iframe.style.opacity = '1';
         postVdpIframeContext(iframe, sourceLabel);
         setTimeout(function () { postVdpIframeContext(iframe, sourceLabel); }, 250);
         setTimeout(function () { postVdpIframeContext(iframe, sourceLabel); }, 800);
@@ -1268,6 +1856,7 @@
     });
 
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) removePopupOverlay(); });
+    box.appendChild(loader);
     box.appendChild(iframe);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -1345,6 +1934,14 @@
         if (k) addUnlockedKey(k);
         revealPriceOnVdp();
         return;
+      }
+      /* ASC: record which control was clicked so the engagement event reports it */
+      var ascTgt = ev.currentTarget || ev.target;
+      var ascCls = ascTgt && ascTgt.className ? String(ascTgt.className) : '';
+      if (ascCls.indexOf('otp-teaser-host') !== -1 || ascCls.indexOf('otp-vdp-teaser-host') !== -1) {
+        ascSetTrigger('Want a lower price? Start here.', 'image');
+      } else {
+        ascSetTrigger('Unlock Instant Price', 'cta_button');
       }
       openOtpPopup();
     };

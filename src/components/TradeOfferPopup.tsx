@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { trackAscFormEngagement, trackAscFormSubmission } from "@/lib/ascEvents";
 import {
   PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
@@ -26,6 +27,12 @@ interface TradeOfferPopupProps {
   pageSource?: string;
   initialCarData?: CarData | null;
 }
+
+/** ASC form identity for this popup. It opens on a timer, so `asc_form_engagment`
+ *  fires on the user's first interaction with a field instead of an opening click. */
+const ASC_FORM_NAME = "AM Ford - Trade Value Offer";
+const ASC_FORM_TYPE = "trade";
+const ASC_SUBMIT_LABEL = "Submit";
 
 const TRADE_HERO_IMAGE =
   "https://vehicle-images.carscommerce.inc/9d49-110013336/1FTEW3LP7TKD22464/844985e1845dbb3c196e6a196fe08341.webp";
@@ -122,10 +129,31 @@ export default function TradeOfferPopup({
     }
   };
 
+  const engagementSent = useRef(false);
+
+  /* Scoped to real fields: React's onFocus is backed by the bubbling `focusin`, so an
+     unscoped handler on the <form> would also count "Not Interested" and the consent
+     link — both of which sit inside it — as form engagement. */
+  const handleFormEngagement = (e?: React.FocusEvent<HTMLFormElement>) => {
+    if (e && !(e.target instanceof HTMLElement && e.target.matches("input, select, textarea"))) {
+      return;
+    }
+    if (engagementSent.current) return;
+    engagementSent.current = true;
+    trackAscFormEngagement({
+      formName: ASC_FORM_NAME,
+      formType: ASC_FORM_TYPE,
+      pageSource,
+      car: carData,
+      extra: { flow_name: "trade", flow_outcome: "start" },
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setInvalidFields([]);
+    handleFormEngagement();
 
     const errors: string[] = [];
     if (!firstName.trim()) errors.push("firstName");
@@ -179,6 +207,16 @@ export default function TradeOfferPopup({
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Submission failed");
+
+      trackAscFormSubmission({
+        formName: ASC_FORM_NAME,
+        formType: ASC_FORM_TYPE,
+        pageSource,
+        car: carData,
+        elementText: ASC_SUBMIT_LABEL,
+        submissionId: data?.saveStatus?.leadId ?? null,
+        extra: { flow_name: "trade", flow_outcome: "lead" },
+      });
 
       setSubmitted(true);
       onSubmitted?.();
@@ -257,7 +295,7 @@ export default function TradeOfferPopup({
         </div>
 
         <div className="trade-offer-body">
-          <form onSubmit={handleSubmit} className="trade-offer-form">
+          <form onSubmit={handleSubmit} onFocus={handleFormEngagement} className="trade-offer-form">
             <div className="trade-offer-grid">
               <label className="trade-offer-field">
                 <span className="trade-offer-field-label">

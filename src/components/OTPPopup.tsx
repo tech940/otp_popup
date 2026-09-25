@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { trackAscFormSubmission } from "@/lib/ascEvents";
 import {
   PRIVACY_POLICY_URL,
   SMS_CONSENT_DISCLOSURE,
@@ -8,6 +9,12 @@ import {
   TERMS_CONSENT_DISCLOSURE,
   TERMS_OF_USE_URL,
 } from "@/lib/smsConsent";
+
+/** ASC form identity for this popup. `asc_form_engagment` is fired by the embed
+ *  script when the "Unlock Instant Price" button is clicked on the dealer page. */
+const ASC_FORM_NAME = "AM Ford - Unlock Instant Price";
+const ASC_FORM_TYPE = "quote";
+const ASC_SUBMIT_LABEL = "Unlock Instant Price";
 
 interface UserData {
   firstName: string;
@@ -388,6 +395,15 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       const userData: UserData = payload.user;
       try { sessionStorage.setItem("otp_verified_user", JSON.stringify(userData)); } catch (_) { }
 
+      trackAscFormSubmission({
+        formName: ASC_FORM_NAME,
+        formType: ASC_FORM_TYPE,
+        pageSource: carData.source,
+        car: carData,
+        elementText: ASC_SUBMIT_LABEL,
+        submissionId: data?.saveStatus?.leadId ?? null,
+      });
+
       setStep("success");
       onSuccess?.({ user: userData, car: carData });
 
@@ -461,6 +477,15 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       console.log("OTP Verification successful. UserData:", userData);
 
       try { sessionStorage.setItem("otp_verified_user", JSON.stringify(userData)); } catch (_) { }
+
+      trackAscFormSubmission({
+        formName: ASC_FORM_NAME,
+        formType: ASC_FORM_TYPE,
+        pageSource: carData.source,
+        car: carData,
+        elementText: "Confirm",
+        submissionId: data?.saveStatus?.leadId ?? null,
+      });
 
       setStep("success");
       onSuccess?.({ user: userData, car: carData });

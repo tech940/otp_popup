@@ -1,7 +1,118 @@
 <script>
 (function () {
   var POPUP_ORIGIN = 'https://www.amfordofjefferson.com/';
+  try {
+    if (!document.querySelector('link[rel="preconnect"][href="' + POPUP_ORIGIN + '"]')) {
+      var _op1 = document.createElement('link'); _op1.rel = 'preconnect'; _op1.href = POPUP_ORIGIN; document.head.appendChild(_op1);
+      var _op2 = document.createElement('link'); _op2.rel = 'dns-prefetch'; _op2.href = POPUP_ORIGIN; document.head.appendChild(_op2);
+    }
+    if (!document.getElementById('otp-spin-style')) {
+      var _ss = document.createElement('style'); _ss.id = 'otp-spin-style';
+      _ss.textContent = '@keyframes otpSpin{0%{transform:translate(-50%,-50%) rotate(0deg);}100%{transform:translate(-50%,-50%) rotate(360deg);}}';
+      document.head.appendChild(_ss);
+    }
+  } catch (e) {}
   var ENQUIRY_KEYS = ["offer_dismissed_until","otp_verified_user","otp_enquiry_start"];
+
+  /* ─────────────────────────────────────────────
+     ASC EVENTS  (Automotive Standards Council)
+     This popup opens on a timer, so it raises asc_form_engagment itself. This script
+     only relays the popup's ASC events into the page dataLayer:
+     asc_form_engagment / asc_form_submission / asc_form_submission_sales.
+     Spec: https://docs.google.com/spreadsheets/d/16i1x19MK3yCRXMivGa2WcyOhxlmGgkb9GbE2vAJuJ74
+  ───────────────────────────────────────────── */
+  /* Only these three event names are ever pushed — a relayed message can never name
+     its own GTM event. */
+  var ASC_ALLOWED_EVENTS = ['asc_form_engagment', 'asc_form_submission', 'asc_form_submission_sales'];
+
+  /* Every ASC key these events can carry. The full set is pushed on every event so a key
+     never carries over: GTM merges each push into one persistent data model, so a key that
+     is simply omitted keeps whatever the previous event set — which would attach the last
+     vehicle a visitor viewed to an unrelated later lead.
+     Keep in sync with ASC_PARAM_KEYS in src/lib/ascEvents.ts. */
+  var ASC_PARAM_KEYS = ['event_owner', 'affiliation', 'department', 'page_type', 'page_location',
+    'comm_type', 'comm_status', 'form_name', 'form_type', 'element_type', 'element_subtype',
+    'element_text', 'element_position', 'event_action', 'event_action_result', 'submission_id',
+    'flow_name', 'flow_outcome', 'item_id', 'item_number', 'item_year', 'item_make', 'item_model',
+    'item_variant', 'item_color', 'item_type', 'item_fuel_type', 'item_condition', 'item_price',
+    'currency'];
+
+  function ascClean(params) {
+    var out = {};
+    for (var k in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+      var v = params[k];
+      if (v === null || v === undefined) continue;
+      if (typeof v === 'number') { out[k] = v; continue; }
+      var s = String(v).replace(/^\s+|\s+$/g, '');
+      if (s === '') continue;
+      out[k] = s;
+    }
+    return out;
+  }
+
+  function ascPush(eventName, params) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      var clean = ascClean(params || {});
+      var payload = { event: eventName };
+      for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+        var key = ASC_PARAM_KEYS[i];
+        payload[key] = Object.prototype.hasOwnProperty.call(clean, key) ? clean[key] : undefined;
+      }
+      window.dataLayer.push(payload);
+    } catch (e) {}
+  }
+
+  function ascPageTypeValue() {
+    var path = (window.location.pathname || '').toLowerCase();
+    if (path.indexOf('/inventory/') !== -1) return 'item';
+    if (path.indexOf('/used-vehicles') !== -1 || path.indexOf('/new-vehicles') !== -1) return 'itemlist';
+    if (path === '/' || path === '' || path.slice(-5) === '/home' || path.slice(-6) === '/home/') return 'home';
+    return 'unknown';
+  }
+
+  /* Relay ASC events posted by the popup iframe into this page's dataLayer. Only known
+     event names and known parameter keys are copied across, so a message can neither name
+     its own GTM event nor introduce a key of its own. */
+  function ascRelay(d) {
+    if (!d || typeof d !== 'object' || d.type !== 'ASC_EVENT') return false;
+    if (ASC_ALLOWED_EVENTS.indexOf(d.event) === -1) return false;
+    var src = (d.params && typeof d.params === 'object') ? d.params : {};
+    var params = {};
+    for (var i = 0; i < ASC_PARAM_KEYS.length; i++) {
+      var key = ASC_PARAM_KEYS[i];
+      if (Object.prototype.hasOwnProperty.call(src, key)) params[key] = src[key];
+    }
+    /* The parent page is authoritative for page context. */
+    params.page_location = window.location.href;
+    params.page_type = ascPageTypeValue();
+    ascPush(d.event, params);
+    return true;
+  }
+
+  /* Exact-origin match only. A substring test such as indexOf('vercel.app') would trust
+     any host containing that text — including free *.vercel.app sites and lookalikes such
+     as vercel.app.example.com. localhost is honoured only when this page is itself served
+     from localhost, i.e. during local development. */
+  function ascTrustedOrigin(origin) {
+    var o = String(origin || '').replace(/\/$/, '');
+    if (!o) return false;
+    if (o === String(POPUP_ORIGIN || '').replace(/\/$/, '')) return true;
+    if (o === window.location.origin) return true;
+    var LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+    return LOCAL.test(o) && LOCAL.test(window.location.origin);
+  }
+
+  /* Bound once per page — every embed on the site shares this guard, so a single submit
+     never lands in the dataLayer more than once. */
+  if (!window.__ascEventRelayBound) {
+    window.__ascEventRelayBound = true;
+    window.addEventListener('message', function (ev) {
+      if (!ascTrustedOrigin(ev.origin)) return;
+      ascRelay(ev.data);
+    });
+  }
 
   function clearOldEnquiry() {
     // Force-clean any old leftover keys on every page load.
@@ -373,8 +484,7 @@
       '?source=gtm-timed-offer' +
       '&page_type=' + encodeURIComponent(pageType) +
       '&page_url=' + encodeURIComponent(pageUrl) +
-      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN) +
-      '&_=' + cacheBust;
+      '&apiBase=' + encodeURIComponent(POPUP_ORIGIN);
 
     if (vdpData) {
       params += '&vin=' + encodeURIComponent(vdpData.vin) +
@@ -397,21 +507,31 @@
       'position:relative;width:100%;max-width:1000px;height:100vh;' +
       'background:transparent;overflow:hidden;';
 
+    var loader = document.createElement('div');
+    loader.style.cssText =
+      'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'width:38px;height:38px;border:3px solid rgba(255,255,255,0.25);' +
+      'border-top-color:#ffffff;border-radius:50%;z-index:1;' +
+      'animation:otpSpin 0.75s linear infinite;pointer-events:none;';
+
     var iframe = document.createElement('iframe');
     iframe.src = POPUP_ORIGIN + '/offer' + params;
     iframe.setAttribute('allow', 'same-origin');
     iframe.style.cssText =
-      'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;';
+      'width:100%;height:100%;border:none;display:block;background:transparent;overflow:hidden;opacity:0;transition:opacity 0.2s ease;';
 
-    // Send vehicle context to iframe after it loads
-    if (vdpData) {
-      iframe.addEventListener('load', function () {
+    iframe.addEventListener('load', function () {
+      if (loader.parentNode) loader.parentNode.removeChild(loader);
+      iframe.style.opacity = '1';
+      if (vdpData) {
         postOfferIframeContext(iframe, pageUrl, pageType);
         setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 250);
         setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 800);
         setTimeout(function () { postOfferIframeContext(iframe, pageUrl, pageType); }, 1600);
-      });
-    }
+      }
+    });
+
+    box.appendChild(loader);
 
     // Click backdrop to close
     overlay.addEventListener('click', function (ev) {
@@ -449,7 +569,7 @@
   function initTimedOffer() {
     var pageType = getPageType();
     if (pageType !== 'VDP') return;
-    var delaySeconds = 10;
+    var delaySeconds = 18;
     setTimeout(function () {
       if (isUnlockPopupOpen()) return;
       showOfferPopup();
