@@ -7,13 +7,19 @@ import {
   safeJsonForEmail,
   vehicleStatusFromType,
 } from "@/lib/leadVehicle";
-import { verifyOTP } from "@/lib/otpStore";
-import { normalizePhone } from "@/lib/phone";
+import { InvalidUsPhoneError, maskPhone, normalizePhone, normalizeUsPhone } from "@/lib/phone";
+import { clientIp, isAllowedOrigin, readJsonBody, takeRateLimit } from "@/lib/requestGuard";
 import {
   SMS_CONSENT_DISCLOSURE,
   TERMS_CONSENT_DISCLOSURE,
 } from "@/lib/smsConsent";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  VERIFY_UNAVAILABLE_MESSAGE,
+  VerifyError,
+  checkVerification,
+  isVerifyConfigured,
+} from "@/lib/twilioVerify";
 
 interface UserData {
   firstName: string;
@@ -703,26 +709,97 @@ export async function OPTIONS() {
   });
 }
 
+/* The $500-off and trade popups are plain lead forms with no OTP step; they post these
+   tokens instead of a code. Each maps to the source label its leads must carry, so an
+   unverified lead can never be recorded or emailed as an Instant Price unlock. */
+const LEAD_FORM_SOURCES: Record<string, string> = {
+  BYPASS_OFFER: "500 off Popup",
+  BYPASS_TRADE: "Trade Value Popup",
+};
+
+const MAX_BODY_BYTES = 64 * 1024;
+const CHECK_WINDOW_MS = 15 * 60_000;
+const MAX_CHECKS_PER_PHONE = 10;
+const MAX_CHECKS_PER_IP = 30;
+
+type GateResult =
+  | { ok: true; to: string }
+  | { ok: false; status: number; error: string; retryAfter?: number };
+
+/**
+ * The unlock popup's verification gate: the code must be approved by Twilio Verify for
+ * this number. Nothing is saved, emailed or returned as success until this passes.
+ */
+async function verifyOtpGate(req: NextRequest, phone: unknown, otp: unknown): Promise<GateResult> {
+  let to: string;
+  try {
+    to = normalizeUsPhone(phone);
+  } catch (e) {
+    if (e instanceof InvalidUsPhoneError) return { ok: false, status: 400, error: e.message };
+    throw e;
+  }
+
+  const code = typeof otp === "string" ? otp.trim() : "";
+  if (!/^\d{6}$/.test(code)) {
+    return { ok: false, status: 400, error: "Enter the 6-digit code we sent." };
+  }
+
+  if (!isVerifyConfigured()) {
+    console.error("[verify] verify-otp called but Twilio Verify env vars are not set");
+    return { ok: false, status: 503, error: VERIFY_UNAVAILABLE_MESSAGE };
+  }
+
+  const limit = takeRateLimit([
+    { key: `check:phone:${to}`, limit: MAX_CHECKS_PER_PHONE, windowMs: CHECK_WINDOW_MS },
+    { key: `check:ip:${clientIp(req)}`, limit: MAX_CHECKS_PER_IP, windowMs: CHECK_WINDOW_MS },
+  ]);
+  if (!limit.ok) {
+    return {
+      ok: false,
+      status: 429,
+      error: "Too many attempts. Please wait a few minutes and try again.",
+      retryAfter: limit.retryAfterSec,
+    };
+  }
+
+  try {
+    const result = await checkVerification(to, code);
+    if (!result.approved) {
+      return result.status === "pending"
+        ? { ok: false, status: 400, error: "That code is incorrect. Please try again." }
+        : { ok: false, status: 400, error: "This code has expired or was already used. Please request a new code." };
+    }
+  } catch (e) {
+    if (e instanceof VerifyError) return { ok: false, status: e.httpStatus, error: e.publicMessage };
+    throw e;
+  }
+  return { ok: true, to };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { user, car, otp } = body;
+    if (!isAllowedOrigin(req)) {
+      return NextResponse.json(
+        { error: "Forbidden." },
+        { status: 403, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
+    }
+
+    const parsed = await readJsonBody(req, MAX_BODY_BYTES);
+    if (!parsed.ok) {
+      return NextResponse.json(
+        { error: parsed.error },
+        { status: parsed.status, headers: { "Access-Control-Allow-Origin": "*" } },
+      );
+    }
+    const body = parsed.data;
+    const { user, car, otp } = body as { user?: Record<string, any>; car?: unknown; otp?: unknown };
 
     // Fallback for old structure if needed, but primarily use new one
-    const userData = user || body;
+    const userData = (user || body) as Record<string, any>;
     const carData = mergeCarPayload(car, body as Record<string, unknown>);
-    const { phone, firstName, lastName, email, preferredContact, comments } =
-      userData;
-    const { otp: oldOtp } = body;
-    const finalOtp = otp || oldOtp;
+    const { phone, firstName, lastName, email } = userData;
 
-    /* 
-    if (!phone || !finalOtp)
-      return NextResponse.json(
-        { error: "Phone and OTP are required" },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
-    */
     if (!phone)
       return NextResponse.json(
         { error: "Phone is required" },
@@ -730,96 +807,43 @@ export async function POST(req: NextRequest) {
       );
 
     const name = `${firstName} ${lastName}`.trim();
+    const leadFormSource = typeof otp === "string" ? LEAD_FORM_SOURCES[otp] : undefined;
 
-    const { digits: normalized, e164: fullPhone } = normalizePhone(phone);
-    
-    console.log(`[OTP STORE] Verifying OTP for phone key: "${normalized}"`);
-
-
-
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-
-    if (!accountSid || !authToken) {
-      // Dev mode or local test mode - check otpStore
-      /*
-      const result = verifyOTP(normalized, finalOtp);
-      if (!result.success) {
+    let fullPhone: string;
+    let leadUser = userData;
+    if (leadFormSource) {
+      /* $500-off / trade lead form: unchanged behaviour (no OTP step), except the lead's
+         source is pinned to the form that sent it. */
+      if (!carData) {
         return NextResponse.json(
-          { error: result.error || "Invalid or expired OTP." },
+          { error: "Invalid request." },
           { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
         );
       }
-      */
-
-      console.log(`[LOCAL VERIFY] Verified ${fullPhone}`);
-
-      // Send email notification to admin
-      const adminUserData = { ...userData, phone: fullPhone };
-      let activityResult: SaveResult | null = null;
-      let leadResult: SaveResult | null = null;
-      let emailSent = false;
-      try {
-        activityResult = await savePopupActivityToSupabase(adminUserData, carData);
-      } catch (activityError) {
-        console.error("Activity tracker save failed (Local Verify):", activityError);
+      if (!String(carData.source || "").startsWith(leadFormSource)) carData.source = leadFormSource;
+      fullPhone = normalizePhone(phone).e164;
+    } else {
+      /* Unlock popup: Twilio must approve the code before anything else happens. */
+      const gate = await verifyOtpGate(req, phone, otp);
+      if (!gate.ok) {
+        return NextResponse.json(
+          { error: gate.error, ...(gate.retryAfter ? { retryAfter: gate.retryAfter } : {}) },
+          { status: gate.status, headers: { "Access-Control-Allow-Origin": "*" } },
+        );
       }
-      try {
-        leadResult = await saveLeadToSupabase(adminUserData, carData);
-      } catch (leadError) {
-        console.error("Lead save failed (Local Verify):", leadError);
-      }
-      try {
-        await sendAdminEmail(adminUserData, carData);
-        emailSent = true;
-      } catch (emailError) {
-        console.error("Email sending failed (Local Verify):", emailError);
-      }
-
-      if (activityResult && !activityResult.ok) {
-        console.error("[VERIFY] popup_activity_tracker save reported failure:", activityResult.error);
-      }
-      if (leadResult && !leadResult.ok) {
-        console.error("[VERIFY] leads save reported failure:", {
-          error: leadResult.error,
-          phone: adminUserData.phone,
-          source: carData?.source || null,
-          pageUrl: carData?.pageUrl || null,
-        });
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Local verification successful",
-          user: { name, email, phone: fullPhone },
-          saveStatus: {
-            popupActivity: activityResult?.ok ?? false,
-            lead: leadResult?.ok ?? false,
-            email: emailSent,
-            popupActivityId: activityResult?.id ?? null,
-            leadId: leadResult?.id ?? null,
-          },
-        },
-        { status: 200, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
+      fullPhone = gate.to;
+      /* The verification time is the server's, never the browser's. */
+      leadUser = { ...userData, verifiedAt: new Date().toISOString() };
     }
 
-    // Verify OTP locally (using the code sent via Twilio)
-    /*
-    const result = verifyOTP(normalized, finalOtp);
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || "Invalid or expired OTP." },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
-      );
-    }
-    */
-
-    console.log("Verified user:", { name, email, phone: fullPhone });
+    console.log("[verify] saving lead", {
+      phone: maskPhone(fullPhone),
+      source: carData?.source || null,
+      otpVerified: !leadFormSource,
+    });
 
     // Send email notification to admin
-    const adminUserData = { ...userData, phone: fullPhone };
+    const adminUserData = { ...leadUser, phone: fullPhone } as UserData;
     let activityResult: SaveResult | null = null;
     let leadResult: SaveResult | null = null;
     let emailSent = false;
@@ -851,7 +875,7 @@ export async function POST(req: NextRequest) {
     if (leadResult && !leadResult.ok) {
       console.error("[VERIFY] leads save reported failure:", {
         error: leadResult.error,
-        phone: adminUserData.phone,
+        phone: maskPhone(adminUserData.phone),
         source: carData?.source || null,
         pageUrl: carData?.pageUrl || null,
       });

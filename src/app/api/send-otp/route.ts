@@ -1,116 +1,88 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateOTP, saveOTP } from "@/lib/otpStore";
-import { normalizePhone } from "@/lib/phone";
-import twilio from "twilio";
+import { InvalidUsPhoneError, normalizeUsPhone } from "@/lib/phone";
+import {
+  clientIp,
+  isAllowedOrigin,
+  readJsonBody,
+  releaseRateLimit,
+  takeRateLimit,
+} from "@/lib/requestGuard";
+import {
+  VERIFY_UNAVAILABLE_MESSAGE,
+  VerifyError,
+  isVerifyConfigured,
+  startSmsVerification,
+} from "@/lib/twilioVerify";
 
-const DELIVERY_FAILURE_STATES = new Set(["failed", "undelivered", "canceled"]);
-const STATUS_CHECK_WAIT_MS = Number(process.env.TWILIO_STATUS_CHECK_WAIT_MS || 2500);
+/* Matches the popup's visible 30s "Resend in Ns" countdown. */
+const RESEND_COOLDOWN_MS = 30_000;
+const WINDOW_MS = 15 * 60_000;
+const MAX_SENDS_PER_PHONE = 5;
+const MAX_SENDS_PER_IP = 10;
+const MAX_BODY_BYTES = 2_048;
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+const CORS = { "Access-Control-Allow-Origin": "*" };
+
+function reply(status: number, body: Record<string, unknown>) {
+  return NextResponse.json(body, { status, headers: CORS });
 }
 
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
-    headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" },
+    headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" },
   });
 }
 
+/**
+ * POST { phone } -> send an SMS code through Twilio Verify.
+ * 200 { success: true, status: "pending" } means Twilio accepted the request, not that the
+ * message was delivered. Errors: { success: false, error, retryAfter? }.
+ */
 export async function POST(req: NextRequest) {
+  if (!isAllowedOrigin(req)) return reply(403, { success: false, error: "Forbidden." });
+
+  const body = await readJsonBody(req, MAX_BODY_BYTES);
+  if (!body.ok) return reply(body.status, { success: false, error: body.error });
+
+  let to: string;
   try {
-    const { phone } = await req.json();
-    if (!phone || !phone.trim()) return NextResponse.json({ error: "Phone number is required" }, { status: 400 });
+    to = normalizeUsPhone(body.data.phone);
+  } catch (e) {
+    if (e instanceof InvalidUsPhoneError) return reply(400, { success: false, error: e.message });
+    throw e;
+  }
 
-    const { digits: normalized, e164: fullPhone } = normalizePhone(phone);
+  if (!isVerifyConfigured()) {
+    console.error("[verify] send-otp called but Twilio Verify env vars are not set");
+    return reply(503, { success: false, error: VERIFY_UNAVAILABLE_MESSAGE });
+  }
 
+  const cooldownKey = `send:cooldown:${to}`;
+  const limit = takeRateLimit([
+    { key: cooldownKey, limit: 1, windowMs: RESEND_COOLDOWN_MS },
+    { key: `send:phone:${to}`, limit: MAX_SENDS_PER_PHONE, windowMs: WINDOW_MS },
+    { key: `send:ip:${clientIp(req)}`, limit: MAX_SENDS_PER_IP, windowMs: WINDOW_MS },
+  ]);
+  if (!limit.ok) {
+    return reply(429, {
+      success: false,
+      error: `Please wait ${limit.retryAfterSec} seconds before requesting another code.`,
+      retryAfter: limit.retryAfterSec,
+    });
+  }
 
-
-    const otp = generateOTP();
-    console.log(`[OTP STORE] Saving OTP for phone key: "${normalized}" (Full: ${fullPhone})`);
-    saveOTP(normalized, otp);
-
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
-
-    if (!accountSid || !authToken || (!fromNumber && !messagingServiceSid)) {
-      console.log(`[DEV MODE] OTP for ${fullPhone}: ${otp}`);
-      return NextResponse.json(
-        { success: true, dev: true, message: "OTP logged to server console (Twilio config missing)" },
-        { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
+  try {
+    const { status } = await startSmsVerification(to);
+    return reply(200, { success: true, status });
+  } catch (e) {
+    if (e instanceof VerifyError) {
+      /* Twilio's own 5xx/outage: let the customer retry straight away rather than wait out
+         the cooldown for a code that was never sent. The 15-minute counters still apply. */
+      if (e.httpStatus >= 500) releaseRateLimit(cooldownKey);
+      return reply(e.httpStatus, { success: false, error: e.publicMessage });
     }
-
-    if (fromNumber && fullPhone === fromNumber) {
-      console.log(`[DEV MODE] OTP for ${fullPhone}: ${otp} (To and From are same)`);
-      return NextResponse.json(
-        { 
-          success: true, 
-          dev: true, 
-          message: "OTP logged to server console (To and From numbers cannot be same for SMS)" 
-        },
-        { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-
-    const client = twilio(accountSid, authToken);
-
-    try {
-      console.log(`[TWILIO] Attempting to send to: ${fullPhone} from: ${fromNumber}`);
-      const message = await client.messages.create({
-        body: `Your verification code is: ${otp}. It will expire in 5 minutes.`,
-        to: fullPhone,
-        ...(messagingServiceSid
-          ? { messagingServiceSid }
-          : { from: fromNumber as string }),
-      });
-
-      // Twilio "create" success means accepted/queued, not guaranteed delivery.
-      // Fetch an updated status shortly after enqueueing so API can surface failures.
-      await sleep(STATUS_CHECK_WAIT_MS);
-      const latest = await client.messages(message.sid).fetch();
-      console.log(`[TWILIO] Queued: ${message.sid}, latest status: ${latest.status}`);
-
-      // For testing/resilience, we no longer return 400 if undelivered by carrier.
-      // As long as Twilio accepted it (queued/sent), we treat it as a success for the app flow.
-      if (DELIVERY_FAILURE_STATES.has(latest.status)) {
-        console.warn(`[TWILIO] Warning: Message ${message.sid} was rejected by carrier (${latest.status}). See Twilio logs.`);
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "OTP accepted by Twilio",
-          sid: message.sid,
-          status: latest.status,
-        },
-        { status: 200, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    } catch (twilioError: any) {
-      console.error("Twilio SDK Error:", twilioError);
-      return NextResponse.json(
-        { 
-          error: twilioError.message || "Failed to send OTP via Twilio.",
-          code: twilioError.code,
-          moreInfo: twilioError.moreInfo,
-          status: twilioError.status
-        },
-        { status: twilioError.status || 500, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-  } catch (e: any) {
-    if (e?.message?.includes("Invalid phone number")) {
-      return NextResponse.json(
-        { error: e.message },
-        { status: 400, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-    console.error("Send OTP error:", e);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
-    );
+    console.error("[verify] send-otp unexpected error", { name: (e as Error)?.name });
+    return reply(500, { success: false, error: "We couldn't send your code. Please try again." });
   }
 }

@@ -7,10 +7,10 @@ A Next.js embeddable OTP verification popup. Collect Name, Email, and Phone — 
 ## Features
 
 - **3-step flow**: Form → OTP entry → Success
-- **SMS via Twilio** (with dev-mode fallback that logs OTP to console)
+- **SMS OTP via Twilio Verify** — Twilio generates, sends, expires and checks the codes
 - **Embeddable on any website** via a single `<script>` tag (no React/npm needed on the host site)
 - **iframe + postMessage** architecture for cross-origin isolation
-- **Rate limiting** & **OTP expiry** (5 min, max 5 attempts)
+- **Rate limiting** per phone and per IP, plus Twilio Verify's own limits
 - **CORS headers** pre-configured
 
 ---
@@ -29,16 +29,12 @@ npm install
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` and fill in your Twilio credentials:
+Edit `.env.local` and fill in your Twilio Verify credentials (server-side only):
 
 ```env
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
-# Optional (recommended for better deliverability):
-# TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-# Optional (helps local-number input, e.g. 91 for India):
-# DEFAULT_COUNTRY_CODE=91
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   # Twilio Console -> Account Info
+TWILIO_AUTH_TOKEN=your_auth_token                       # Twilio Console -> Account Info
+TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # Verify -> Services -> "AM Ford"
 
 # Supabase (verified leads — optional)
 # SUPABASE_URL=https://xxxx.supabase.co
@@ -51,8 +47,8 @@ Run the SQL in `supabase/migrations/001_otp_leads.sql` in the Supabase SQL edito
 
 WordPress GTM iframe URLs should pass vehicle data like `?vin=&stock=&price=&vehicle=&page_url=` (see `public/gtm-wordpress-snippet.example.txt`).
 
-> **No Twilio yet?** Leave these blank — OTPs will be logged to your terminal console instead (dev mode).
-> **Twilio trial note:** Trial accounts can only send to phone numbers you verified in Twilio Console.
+> **There is no dev-mode bypass.** Without the three Twilio variables, `/api/send-otp` and the unlock
+> popup's `/api/verify-otp` return 503. Use a real US number you are authorized to text when testing.
 
 ### 3. Run the dev server
 
@@ -142,7 +138,9 @@ otp-popup/
 │   │   ├── OTPPopupDemo.tsx        ← Demo wrapper
 │   │   └── OTPPopupStandalone.tsx  ← iframe wrapper
 │   └── lib/
-│       └── otpStore.ts             ← In-memory OTP store
+│       ├── twilioVerify.ts         ← Twilio Verify send/check
+│       ├── requestGuard.ts         ← Origin check, body limit, rate limits
+│       └── phone.ts                ← US phone normalization (E.164)
 ├── public/
 │   ├── embed.js                    ← Script for external sites
 │   └── external-example.html      ← Example external site
@@ -156,33 +154,35 @@ otp-popup/
 
 ### POST `/api/send-otp`
 
+Starts a Twilio Verify SMS verification. US numbers only.
+
 ```json
-Request:  { "phone": "+919876543210" }
-Response: { "success": true, "message": "OTP sent successfully" }
+Request:  { "phone": "+12165551234" }
+200:      { "success": true, "status": "pending" }
+4xx/5xx:  { "success": false, "error": "<customer-safe message>", "retryAfter": 27 }
 ```
+
+`200` means Twilio accepted the request — not that the SMS was delivered. `retryAfter` (seconds) is
+present on `429`. Limits: one send per number per 30s, 5 per number and 10 per IP per 15 minutes.
 
 ### POST `/api/verify-otp`
 
+For the unlock popup, checks the code with Twilio Verify and saves the lead only if Twilio
+returns `approved`.
+
 ```json
-Request:  { "phone": "+919876543210", "otp": "123456", "name": "John", "email": "john@gmail.com" }
-Response: { "success": true, "message": "Phone verified!", "user": { "name", "email", "phone" } }
+Request:  { "user": { "phone": "+12165551234", "firstName": "...", ... }, "car": { ... }, "otp": "123456" }
+200:      { "success": true, "message": "...", "user": { ... }, "saveStatus": { ..., "leadId": "..." } }
+4xx/5xx:  { "error": "<customer-safe message>", "retryAfter": 120 }
 ```
 
-Both endpoints include `Access-Control-Allow-Origin: *` headers so they can be called from any domain.
+Limits: 10 checks per number and 30 per IP per 15 minutes, plus Twilio's 5 attempts per code.
 
----
+The $500-off and trade popups also post here with `otp` set to `BYPASS_OFFER` / `BYPASS_TRADE`.
+They are plain lead forms with no OTP step; their leads are pinned to their own source label and
+are never recorded as an unlock.
 
-## Saving Verified Users
-
-In `src/app/api/verify-otp/route.ts`, find the comment:
-
-```ts
-// TODO: Save user to your database here
-// Example: await db.users.create({ name, email, phone, verifiedAt: new Date() })
-console.log("Verified user:", { name, email, phone });
-```
-
-Replace this with your own database logic (Prisma, Supabase, MongoDB, etc.).
+Browser requests must come from the app's own origin or `ALLOWED_ORIGINS`.
 
 ---
 
@@ -208,6 +208,8 @@ npm start
 
 ## Production Notes
 
-- **OTP Store**: The default in-memory store resets on server restart. For production, replace `src/lib/otpStore.ts` with a Redis-backed implementation.
-- **Rate limiting**: Add IP-based rate limiting (e.g. `upstash/ratelimit`) to `/api/send-otp` to prevent abuse.
-- **CORS**: To restrict which domains can embed the popup, update `ALLOWED_ORIGINS` in `.env.local` and tighten the headers in `next.config.js`.
+- **OTP codes**: generated, stored and expired by Twilio Verify. The app never sees or stores one.
+- **Rate limiting**: the app's limiter is in memory, per server instance, so on Vercel it bounds
+  bursts rather than enforcing an exact global limit. Twilio Verify adds its own per-number send
+  limit, per-code attempt limit and Fraud Guard. For a hard global per-IP limit, configure Verify
+  Programmable Rate Limits on the service, or back `src/lib/requestGuard.ts` with Redis.

@@ -14,7 +14,9 @@ import {
  *  script when the "Unlock Instant Price" button is clicked on the dealer page. */
 const ASC_FORM_NAME = "AM Ford - Unlock Instant Price";
 const ASC_FORM_TYPE = "quote";
-const ASC_SUBMIT_LABEL = "Unlock Instant Price";
+
+/* Matches RESEND_COOLDOWN_MS in /api/send-otp. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 interface UserData {
   firstName: string;
@@ -246,11 +248,13 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
   const [error, setError] = useState("");
   const [invalidFields, setInvalidFields] = useState<string[]>([]);
   const [resendTimer, setResendTimer] = useState(0);
-  const [devMode, setDevMode] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /* Blocks a second send/verify while one is in flight; setLoading alone is not
+     synchronous enough to stop a fast double click. */
+  const requestInFlight = useRef(false);
 
   const [carData, setCarData] = useState<CarData>({
     title: "",
@@ -309,8 +313,9 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
-  const startResendTimer = () => {
-    setResendTimer(30);
+  const startResendTimer = (seconds = RESEND_COOLDOWN_SECONDS) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setResendTimer(seconds);
     timerRef.current = setInterval(() => {
       setResendTimer((t) => {
         if (t <= 1) { clearInterval(timerRef.current!); return 0; }
@@ -319,16 +324,21 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     }, 1000);
   };
 
-  const sendOTP = async (normalized: string) => {
+  /** Ask the server to text a code via Twilio Verify. Throws with the server's message. */
+  const requestCode = async (e164: string) => {
     const res = await fetch(`${apiBase}/api/send-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: normalized }),
+      body: JSON.stringify({ phone: e164 }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to send OTP");
-    if (data.dev) setDevMode(true);
-    return data;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.error || "We couldn't send your code. Please try again.") as Error & {
+        retryAfter?: number;
+      };
+      if (typeof data.retryAfter === "number") err.retryAfter = data.retryAfter;
+      throw err;
+    }
   };
 
   const handleSendOTP = async () => {
@@ -350,79 +360,54 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       return;
     }
 
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
+    const cPhone = formatE164(phone);
     try {
-      // await sendOTP(phone); // Send raw phone to let API handle normalization
-      const cPhone = formatE164(phone);
+      await requestCode(cPhone);
       setCleanPhone(cPhone);
-
-      // Directly call verify API instead of showing OTP screen
-      const payload = {
-        user: {
-          name: `${firstName} ${lastName}`.trim(),
-          firstName,
-          lastName,
-          phone: cPhone,
-          email,
-          preferredContact,
-          comments,
-          verifiedAt: new Date().toISOString(),
-          smsConsentChecked: true,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
-          smsConsentAt: new Date().toISOString(),
-          smsMarketingConsentChecked: true,
-          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
-          smsMarketingConsentAt: new Date().toISOString(),
-          smsTransactionalConsentChecked: true,
-          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-          smsTransactionalConsentAt: new Date().toISOString(),
-          termsConsentChecked: true,
-          termsConsentText: TERMS_CONSENT_DISCLOSURE,
-          termsConsentAt: new Date().toISOString(),
-        },
-        car: carData,
-        otp: "BYPASS" 
-      };
-
-      const res = await fetch(`${apiBase}/api/verify-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Submission failed");
-
-      const userData: UserData = payload.user;
-      try { sessionStorage.setItem("otp_verified_user", JSON.stringify(userData)); } catch (_) { }
-
-      trackAscFormSubmission({
-        formName: ASC_FORM_NAME,
-        formType: ASC_FORM_TYPE,
-        pageSource: carData.source,
-        car: carData,
-        elementText: ASC_SUBMIT_LABEL,
-        submissionId: data?.saveStatus?.leadId ?? null,
-      });
-
-      setStep("success");
-      onSuccess?.({ user: userData, car: carData });
-
-      // setStep("otp");
-      // startResendTimer();
-      // setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      setOtp(["", "", "", "", "", ""]);
+      setStep("otp");
+      startResendTimer();
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const retryAfter = (err as { retryAfter?: number }).retryAfter;
+      if (retryAfter && cPhone === cleanPhone) {
+        /* A code for this number is still pending (the user went Back and resubmitted):
+           return to code entry instead of blocking them. */
+        setOtp(["", "", "", "", "", ""]);
+        setStep("otp");
+        startResendTimer(retryAfter);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   };
 
   const handleOTPChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
+    let digits = value.replace(/\D/g, "");
+    if (value && !digits) return;
+    const prev = otp[index];
+    /* Typing over a box that already holds a digit yields two characters; keep the new one. */
+    if (prev && digits.length === 2 && (digits[0] === prev || digits[1] === prev)) {
+      digits = digits[0] === prev ? digits[1] : digits[0];
+    }
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
+    if (digits.length > 1) {
+      /* Paste, or iOS/Android SMS autofill, which puts the whole code in one box. */
+      for (let i = 0; i < digits.length && index + i < 6; i++) newOtp[index + i] = digits[i];
+      setOtp(newOtp);
+      otpRefs.current[Math.min(index + digits.length, 5)]?.focus();
+      return;
+    }
+    newOtp[index] = digits;
     setOtp(newOtp);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
+    if (digits && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOTPKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
@@ -435,6 +420,8 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     const otpString = otp.join("");
     if (otpString.length !== 6) return setError("Please enter the complete 6-digit code.");
 
+    if (requestInFlight.current) return;
+    requestInFlight.current = true;
     setLoading(true);
     try {
       const payload = {
@@ -461,20 +448,19 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           termsConsentAt: new Date().toISOString(),
         },
         car: carData,
-        otp: otpString // Keep OTP for verification logic
+        otp: otpString,
       };
 
+      /* The server checks the code with Twilio Verify and only then saves the lead. */
       const res = await fetch(`${apiBase}/api/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Verification failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "We couldn't verify your code. Please try again.");
 
       const userData: UserData = payload.user;
-
-      console.log("OTP Verification successful. UserData:", userData);
 
       try { sessionStorage.setItem("otp_verified_user", JSON.stringify(userData)); } catch (_) { }
 
@@ -491,23 +477,31 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
       onSuccess?.({ user: userData, car: carData });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
+      /* Clear the boxes for another attempt; the phone number is kept. */
+      setOtp(["", "", "", "", "", ""]);
+      setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
-    if (resendTimer > 0 || loading) return;
+    if (resendTimer > 0 || loading || requestInFlight.current) return;
+    requestInFlight.current = true;
     setError("");
     setOtp(["", "", "", "", "", ""]);
     setLoading(true);
     try {
-      await sendOTP(cleanPhone);
+      await requestCode(cleanPhone);
       startResendTimer();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to resend OTP");
+      const retryAfter = (err as { retryAfter?: number }).retryAfter;
+      if (retryAfter) startResendTimer(retryAfter);
+      setError(err instanceof Error ? err.message : "We couldn't send your code. Please try again.");
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   };
@@ -755,9 +749,8 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                 Instant Unlock Code Sent!
               </h2>
               <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 36, lineHeight: 1.6, maxWidth: 400, marginLeft: "auto", marginRight: "auto" }}>
-                Check your {preferredContact === "Email" ? "email" : "phone"} for the 6-digit code sent to{" "}
+                Check your phone for the 6-digit code sent to{" "}
                 <strong style={{ color: "#111827" }}>{cleanPhone}</strong>.
-                {devMode && <span style={{ display: "block", marginTop: 6, background: "#fef3c7", color: "#92400e", fontSize: 12, padding: "4px 8px", borderRadius: 4, fontWeight: 600 }}>DEV MODE: Check your terminal for the OTP</span>}
               </p>
 
               <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 12, textAlign: "center" }}>
@@ -769,7 +762,9 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
                   <input
                     key={i}
                     ref={(el) => { otpRefs.current[i] = el; }}
-                    type="text" inputMode="numeric" maxLength={1} value={digit}
+                    type="text" inputMode="numeric" value={digit}
+                    autoComplete={i === 0 ? "one-time-code" : "off"}
+                    aria-label={`Digit ${i + 1} of 6`}
                     onChange={(e) => handleOTPChange(i, e.target.value)}
                     onKeyDown={(e) => handleOTPKeyDown(i, e)}
                     autoFocus={i === 0}
