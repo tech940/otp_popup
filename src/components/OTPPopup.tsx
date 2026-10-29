@@ -3,12 +3,13 @@ import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { trackAscFormSubmission } from "@/lib/ascEvents";
 import {
   PRIVACY_POLICY_URL,
-  SMS_CONSENT_DISCLOSURE,
-  SMS_MARKETING_CONSENT_DISCLOSURE,
-  SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-  TERMS_CONSENT_DISCLOSURE,
+  TERMS_LINK_TEXT,
   TERMS_OF_USE_URL,
+  UNLOCK_CONSENT_DISCLOSURE,
+  splitAtTermsLink,
 } from "@/lib/smsConsent";
+
+const CONSENT_COPY = splitAtTermsLink(UNLOCK_CONSENT_DISCLOSURE);
 
 /** ASC form identity for this popup. `asc_form_engagment` is fired by the embed
  *  script when the "Unlock Instant Price" button is clicked on the dealer page. */
@@ -435,16 +436,16 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
           comments,
           verifiedAt: new Date().toISOString(),
           smsConsentChecked: true,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentText: UNLOCK_CONSENT_DISCLOSURE,
           smsConsentAt: new Date().toISOString(),
           smsMarketingConsentChecked: true,
-          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
+          smsMarketingConsentText: UNLOCK_CONSENT_DISCLOSURE,
           smsMarketingConsentAt: new Date().toISOString(),
           smsTransactionalConsentChecked: true,
-          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsTransactionalConsentText: UNLOCK_CONSENT_DISCLOSURE,
           smsTransactionalConsentAt: new Date().toISOString(),
           termsConsentChecked: true,
-          termsConsentText: TERMS_CONSENT_DISCLOSURE,
+          termsConsentText: UNLOCK_CONSENT_DISCLOSURE,
           termsConsentAt: new Date().toISOString(),
         },
         car: carData,
@@ -682,14 +683,14 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
 
               <div className="sms-consent-group">
                 <p className="sms-consent-copy" style={{ textAlign: "center", color: "#6b7280" }}>
-                  By submitting, you agree that AM FORD Ashtabula may contact you. Message/data rates may apply.{" "}
+                  {CONSENT_COPY.before}
                   <a
                     href={TERMS_OF_USE_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Terms of use
-                  </a>
+                    {TERMS_LINK_TEXT}
+                  </a>{CONSENT_COPY.after}
                 </p>
               </div>
 

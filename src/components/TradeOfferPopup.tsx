@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { trackAscFormEngagement, trackAscFormSubmission } from "@/lib/ascEvents";
 import {
   PRIVACY_POLICY_URL,
-  SMS_CONSENT_DISCLOSURE,
-  SMS_MARKETING_CONSENT_DISCLOSURE,
-  SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-  TERMS_CONSENT_DISCLOSURE,
+  TERMS_LINK_TEXT,
   TERMS_OF_USE_URL,
+  TRADE_CONSENT_DISCLOSURE,
+  splitAtTermsLink,
 } from "@/lib/smsConsent";
+
+const CONSENT_COPY = splitAtTermsLink(TRADE_CONSENT_DISCLOSURE);
 
 interface CarData {
   title: string;
@@ -180,16 +181,16 @@ export default function TradeOfferPopup({
           comments: "Submitted via Trade Value Popup",
           verifiedAt: new Date().toISOString(),
           smsConsentChecked: true,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentText: TRADE_CONSENT_DISCLOSURE,
           smsConsentAt: new Date().toISOString(),
           smsMarketingConsentChecked: true,
-          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
+          smsMarketingConsentText: TRADE_CONSENT_DISCLOSURE,
           smsMarketingConsentAt: new Date().toISOString(),
           smsTransactionalConsentChecked: true,
-          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsTransactionalConsentText: TRADE_CONSENT_DISCLOSURE,
           smsTransactionalConsentAt: new Date().toISOString(),
           termsConsentChecked: true,
-          termsConsentText: TERMS_CONSENT_DISCLOSURE,
+          termsConsentText: TRADE_CONSENT_DISCLOSURE,
           termsConsentAt: new Date().toISOString(),
         },
         car: {
@@ -396,15 +397,15 @@ export default function TradeOfferPopup({
 
             <div className="trade-offer-consent" style={{ marginTop: 16 }}>
               <p className="sms-consent-copy" style={{ textAlign: "center", color: "#6b7280", fontSize: 12 }}>
-                By submitting, you agree that AM FORD Ashtabula may contact you. Message/data rates may apply.{" "}
+                {CONSENT_COPY.before}
                 <a
                   href={TERMS_OF_USE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ color: "var(--brand-color)", fontWeight: 600, textDecoration: "underline" }}
                 >
-                  Terms of use
-                </a>
+                  {TERMS_LINK_TEXT}
+                </a>{CONSENT_COPY.after}
               </p>
             </div>
           </form>

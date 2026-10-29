@@ -2,13 +2,14 @@
 import { useState, useEffect, useRef } from "react";
 import { trackAscFormEngagement, trackAscFormSubmission } from "@/lib/ascEvents";
 import {
+  OFFER_CONSENT_DISCLOSURE,
   PRIVACY_POLICY_URL,
-  SMS_CONSENT_DISCLOSURE,
-  SMS_MARKETING_CONSENT_DISCLOSURE,
-  SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
-  TERMS_CONSENT_DISCLOSURE,
+  TERMS_LINK_TEXT,
   TERMS_OF_USE_URL,
+  splitAtTermsLink,
 } from "@/lib/smsConsent";
+
+const CONSENT_COPY = splitAtTermsLink(OFFER_CONSENT_DISCLOSURE);
 
 interface CarData {
   title: string;
@@ -130,16 +131,16 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
           comments: "Submitted via $500 OFF Offer Popup",
           verifiedAt: new Date().toISOString(),
           smsConsentChecked: true,
-          smsConsentText: SMS_CONSENT_DISCLOSURE,
+          smsConsentText: OFFER_CONSENT_DISCLOSURE,
           smsConsentAt: new Date().toISOString(),
           smsMarketingConsentChecked: true,
-          smsMarketingConsentText: SMS_MARKETING_CONSENT_DISCLOSURE,
+          smsMarketingConsentText: OFFER_CONSENT_DISCLOSURE,
           smsMarketingConsentAt: new Date().toISOString(),
           smsTransactionalConsentChecked: true,
-          smsTransactionalConsentText: SMS_TRANSACTIONAL_CONSENT_DISCLOSURE,
+          smsTransactionalConsentText: OFFER_CONSENT_DISCLOSURE,
           smsTransactionalConsentAt: new Date().toISOString(),
           termsConsentChecked: true,
-          termsConsentText: TERMS_CONSENT_DISCLOSURE,
+          termsConsentText: OFFER_CONSENT_DISCLOSURE,
           termsConsentAt: new Date().toISOString(),
         },
         car: {
@@ -345,14 +346,14 @@ export default function OfferPopup({ onClose, onSubmitted, apiBase = "", pageSou
 
             <div className="sms-consent-group offer-consent-group">
               <p className="sms-consent-copy" style={{ textAlign: "center", color: "#6b7280" }}>
-                By submitting, you agree that AM FORD Ashtabula may contact you. Message/data rates may apply.{" "}
+                {CONSENT_COPY.before}
                 <a
                   href={TERMS_OF_USE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Terms of use
-                </a>
+                  {TERMS_LINK_TEXT}
+                </a>{CONSENT_COPY.after}
               </p>
             </div>
 
