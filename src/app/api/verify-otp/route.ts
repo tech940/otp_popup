@@ -14,6 +14,7 @@ import {
   TERMS_CONSENT_DISCLOSURE,
 } from "@/lib/smsConsent";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { recordVerified } from "@/lib/otpAttempts";
 import {
   VERIFY_UNAVAILABLE_MESSAGE,
   VerifyError,
@@ -832,6 +833,8 @@ export async function POST(req: NextRequest) {
         );
       }
       fullPhone = gate.to;
+      /* Close this person's otp_attempts row as verified (tracking only). */
+      await recordVerified(fullPhone);
       /* The verification time is the server's, never the browser's. */
       leadUser = { ...userData, verifiedAt: new Date().toISOString() };
     }

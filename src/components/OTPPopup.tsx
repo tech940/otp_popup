@@ -330,7 +330,19 @@ export default function OTPPopup({ onSuccess, onClose, apiBase = "" }: OTPPopupP
     const res = await fetch(`${apiBase}/api/send-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: e164 }),
+      /* The details are recorded in otp_attempts so abandoned unlocks can be counted. */
+      body: JSON.stringify({
+        phone: e164,
+        user: { firstName, lastName, email, preferredContact, comments },
+        car: {
+          title: carData.title,
+          vin: carData.vin,
+          stock: carData.stock,
+          price: carData.price,
+          source: carData.source,
+          pageUrl: carData.pageUrl,
+        },
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

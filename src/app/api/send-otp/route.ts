@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { attemptDetailsFrom, recordCodeSent } from "@/lib/otpAttempts";
 import { InvalidUsPhoneError, normalizeUsPhone } from "@/lib/phone";
 import {
   clientIp,
@@ -19,7 +20,8 @@ const RESEND_COOLDOWN_MS = 30_000;
 const WINDOW_MS = 15 * 60_000;
 const MAX_SENDS_PER_PHONE = 5;
 const MAX_SENDS_PER_IP = 10;
-const MAX_BODY_BYTES = 2_048;
+/* Room for the form details recorded in otp_attempts. */
+const MAX_BODY_BYTES = 8_192;
 
 const CORS = { "Access-Control-Allow-Origin": "*" };
 
@@ -74,6 +76,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const { status } = await startSmsVerification(to);
+    /* Funnel tracking only (otp_attempts) - never a lead, never emailed, never blocks. */
+    await recordCodeSent(to, attemptDetailsFrom(body.data));
     return reply(200, { success: true, status });
   } catch (e) {
     if (e instanceof VerifyError) {
