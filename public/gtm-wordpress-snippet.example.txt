@@ -277,7 +277,7 @@
     params.event_action_result = 'popup';
     params.element_type        = elementType || 'body';
     params.element_subtype     = trigger.elementSubtype || 'cta_button';
-    params.element_text        = trigger.elementText || 'Unlock Instant Price';
+    params.element_text        = trigger.elementText || 'Get Today\'s Price';
     params.element_position    = 'inline';
     ascPush('asc_form_engagment', params);
   }
@@ -494,7 +494,8 @@
       'display:flex;align-items:center;justify-content:center;gap:10px;' +
       'width:100%;box-sizing:border-box;' +
       'padding:14px 16px;' +
-      'background:#05214F;color:#fff;' +
+      /* Teaser green (#32CB24) with white text and lock icon */
+      'background:#32CB24;color:#fff;' +
       'border:none;cursor:pointer;' +
       'font-weight:600;font-size:15px;' +
       'font-family:system-ui,-apple-system,sans-serif;' +
@@ -828,7 +829,7 @@
       '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">' +
       '<rect x="5" y="11" width="14" height="10" rx="2"/>' +
       '<path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg>' +
-      'Unlock Instant Price';
+      'Get Today\'s Price';
 
     function handleUnlock(ev) {
       ev.preventDefault(); ev.stopPropagation();
@@ -845,7 +846,7 @@
       if (ascCls.indexOf('otp-teaser-host') !== -1 || ascCls.indexOf('otp-vdp-teaser-host') !== -1) {
         ascSetTrigger('Want a lower price? Start here.', 'image');
       } else {
-        ascSetTrigger('Unlock Instant Price', 'cta_button');
+        ascSetTrigger('Get Today\'s Price', 'cta_button');
       }
       openOtpPopupFromRoot(wrap);
     }
@@ -909,6 +910,8 @@
     bindLegacyButtons();
   }
 
+  var OTP_OWN_CTA = '.otp-unlock-ip-btn, .otp-vdp-unlock-btn-class';
+
   function bindLegacyButtons() {
     var elements = document.querySelectorAll('a, button, [class*="cta"]');
     for (var i = 0; i < elements.length; i++) {
@@ -917,6 +920,9 @@
       if (el.classList.contains('hit-link') || el.closest('.result-title') ||
           el.closest('[data-testid="vehicle-title"]')) continue;
       if (!matchesGetTodaysPriceLabel(el.textContent || '')) continue;
+      /* Our injected CTA carries the same "Get Today's Price" label. Cloning it - or a
+         wrapper around it whose class contains "cta" - would strip its click handler. */
+      if (el.matches(OTP_OWN_CTA) || el.closest(OTP_OWN_CTA) || el.querySelector(OTP_OWN_CTA)) continue;
       el.dataset.popupBound = 'true';
       var clone = el.cloneNode(true);
       el.parentNode.replaceChild(clone, el);
@@ -1303,7 +1309,7 @@
     params.event_action_result = 'popup';
     params.element_type        = elementType || 'body';
     params.element_subtype     = trigger.elementSubtype || 'cta_button';
-    params.element_text        = trigger.elementText || 'Unlock Instant Price';
+    params.element_text        = trigger.elementText || 'Get Today\'s Price';
     params.element_position    = 'inline';
     ascPush('asc_form_engagment', params);
   }
@@ -1941,7 +1947,7 @@
       if (ascCls.indexOf('otp-teaser-host') !== -1 || ascCls.indexOf('otp-vdp-teaser-host') !== -1) {
         ascSetTrigger('Want a lower price? Start here.', 'image');
       } else {
-        ascSetTrigger('Unlock Instant Price', 'cta_button');
+        ascSetTrigger('Get Today\'s Price', 'cta_button');
       }
       openOtpPopup();
     };
@@ -1973,13 +1979,13 @@
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="fill:none !important;">' +
         '<rect x="5" y="11" width="14" height="10" rx="2" style="fill:none !important; stroke:currentColor !important; stroke-width:2.2 !important;"/>' +
         '<path d="M7 11V8a5 5 0 0 1 10 0v3" style="fill:none !important; stroke:currentColor !important; stroke-width:2.2 !important;"/></svg>' +
-        'Unlock Instant Price';
+        'Get Today\'s Price';
 
       btn.style.cssText =
         'display:flex;align-items:center;justify-content:center;gap:10px;' +
         'width:100%;box-sizing:border-box;' +
         'padding:14px 20px;' +
-        'background:#05214F;color:#fff;' +
+        'background:#32CB24;color:#fff;' +
         'border:none;border-radius:0;cursor:pointer;' +
         'font-weight:600;font-size:15px;font-family:inherit;' +
         'letter-spacing:0.01em;text-transform:uppercase;' +
